@@ -21,12 +21,12 @@ CLI="python3 ${CLAUDE_PLUGIN_ROOT}/cli/gw.py || python ${CLAUDE_PLUGIN_ROOT}/cli
 
 1. **Scan inbox** for the requested timeframe (default: 1d):
    ```bash
-   $CLI gmail scan --since "{{timeframe|1d}}" --account main --compact
+   $CLI gmail scan --since "{{timeframe|1d}}" --compact
    ```
 
 2. **Summarize** the results: count, senders, subjects, any urgent items.
 
 3. If the user wants details on a specific message, fetch it:
    ```bash
-   $CLI gmail get MESSAGE_ID --account main --compact
+   $CLI gmail get MESSAGE_ID --compact
    ```

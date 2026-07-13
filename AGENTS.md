@@ -4,6 +4,18 @@ Portable rules for any coding agent (Codex, Cursor, Claude Code, …) driving th
 plugin. The slash commands and skills are Claude-Code-shaped, but the CLI underneath
 is a plain Python program you can call directly.
 
+## First run (setup)
+
+If the CLI isn't set up yet — no `.venv`, no OAuth client, or `gw auth status`
+reports `token_present: false` — do setup before anything else. Follow the gated
+runbook in [`INSTALL_FOR_AGENTS.md`](INSTALL_FOR_AGENTS.md): it builds the plugin
+venv from `requirements.txt`, walks the user through a Google Cloud project +
+Desktop OAuth client (offering to drive the browser via a Chrome DevTools MCP where
+one is available), authenticates with `gw auth login`, and verifies a real read.
+Under Claude Code the same flow is the `/gw-setup` command; the underlying skill is
+[`skills/gw-setup/SKILL.md`](skills/gw-setup/SKILL.md). Don't hand-roll venv or auth
+steps — use those.
+
 ## Invoking the CLI
 
 - Preferred: the launcher `bin/gw` (POSIX) or `bin/gw.cmd` / `bin/gw.ps1` (Windows).
