@@ -80,7 +80,7 @@ class TestOAuthClientResolution:
             json.dumps({"installed": {"client_id": "file-id", "client_secret": "file-secret"}})
         )
         config, source = _resolve_oauth_client(None)
-        assert source.endswith("client_secret.json")
+        assert source == "config-dir"
         assert config["installed"]["client_id"] == "file-id"
 
     def test_explicit_client_secret_file_third(self, env, tmp_path):
@@ -89,13 +89,13 @@ class TestOAuthClientResolution:
             json.dumps({"installed": {"client_id": "flag-id", "client_secret": "flag-secret"}})
         )
         config, source = _resolve_oauth_client(str(secret))
-        assert source == str(secret)
+        assert source == "client-secret-file"
         assert config["installed"]["client_id"] == "flag-id"
 
     def test_legacy_token_client_reuse_last(self, env):
         (env.legacy_dir / ".google-token.json").write_text(json.dumps(_token_data()))
         config, source = _resolve_oauth_client(None)
-        assert source == "legacy-token:.google-token.json"
+        assert source == "legacy-token"
         assert config["installed"]["client_id"] == "cid"
 
     def test_nothing_found_raises_with_setup_hint(self, env):
@@ -113,7 +113,7 @@ class TestOAuthClientResolution:
             json.dumps({"installed": {"client_id": "flag-id", "client_secret": "flag-secret"}})
         )
         config, source = _resolve_oauth_client(str(secret))
-        assert source == str(secret)
+        assert source == "client-secret-file"
         assert config["installed"]["client_id"] == "flag-id"
 
     def test_explicit_flag_beats_env(self, env, monkeypatch, tmp_path):
@@ -124,7 +124,7 @@ class TestOAuthClientResolution:
             json.dumps({"installed": {"client_id": "flag-id", "client_secret": "flag-secret"}})
         )
         config, source = _resolve_oauth_client(str(secret))
-        assert source == str(secret)
+        assert source == "client-secret-file"
         assert config["installed"]["client_id"] == "flag-id"
 
 
@@ -339,7 +339,7 @@ class TestPerformLogin:
 
         result = perform_login(account="mail", email="m@example.com")
 
-        assert result["client_source"] == "legacy-token:.google-token-mail.json"
+        assert result["client_source"] == "legacy-token"
         assert Path(result["token_file"]) == legacy
         cfg = json.loads((env.config_dir / "accounts.json").read_text())
         assert cfg["accounts"]["mail"]["token_file"] == str(legacy)
