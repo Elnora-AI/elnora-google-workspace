@@ -72,7 +72,14 @@ def main() -> int:
             print(err.suggestion, file=sys.stderr)
         return err.exit_code
 
-    print(json.dumps(result, indent=2))
+    # Print an explicit field allowlist — never the raw login result, which
+    # may grow credential-adjacent fields (e.g. token storage paths).
+    summary = {
+        key: result[key]
+        for key in ("authenticated", "account", "storage", "scopes", "email")
+        if key in result
+    }
+    print(json.dumps(summary, indent=2))
     return 0
 
 

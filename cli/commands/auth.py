@@ -210,9 +210,20 @@ def perform_login(
     return result
 
 
+def _has_gmail_scope(scope_list: list[str]) -> bool:
+    """Exact-match scope check (no substring matching on URLs)."""
+    for scope in scope_list:
+        base = scope.rstrip("/")
+        if base == "https://mail.google.com" or base.startswith(
+            "https://www.googleapis.com/auth/gmail"
+        ):
+            return True
+    return False
+
+
 def _profile_email(creds, scope_list: list[str]) -> str | None:
     """Best-effort account email via Gmail getProfile (needs a gmail scope)."""
-    if not any("gmail" in s or "mail.google.com" in s for s in scope_list):
+    if not _has_gmail_scope(scope_list):
         return None
     try:
         from googleapiclient.discovery import build
