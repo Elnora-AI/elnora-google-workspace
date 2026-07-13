@@ -55,12 +55,15 @@ def _resolve_oauth_client(client_secret_file: str | None) -> tuple[dict, str]:
     Precedence (explicit beats ambient): --client-secret-file →
     GW_CLIENT_ID/GW_CLIENT_SECRET env → <config-dir>/client_secret.json →
     client embedded in an existing legacy token file.
+
+    The source label is a fixed, non-sensitive category — never a filesystem
+    path or a secret-file name — so it is safe to include in printed output.
     """
     import auth
 
     # An explicit per-invocation flag wins over any ambient env/config default.
     if client_secret_file:
-        return _client_config_from_file(Path(client_secret_file)), client_secret_file
+        return _client_config_from_file(Path(client_secret_file)), "client-secret-file"
 
     env_id = os.environ.get("GW_CLIENT_ID")
     env_secret = os.environ.get("GW_CLIENT_SECRET")
@@ -69,7 +72,7 @@ def _resolve_oauth_client(client_secret_file: str | None) -> tuple[dict, str]:
 
     config_secret = auth.get_config_dir() / "client_secret.json"
     if config_secret.exists():
-        return _client_config_from_file(config_secret), str(config_secret)
+        return _client_config_from_file(config_secret), "config-dir"
 
     for name, token_path in auth.discover_legacy_accounts().items():
         try:
@@ -80,7 +83,7 @@ def _resolve_oauth_client(client_secret_file: str | None) -> tuple[dict, str]:
         if data.get("client_id") and data.get("client_secret"):
             return (
                 _installed_client_config(data["client_id"], data["client_secret"]),
-                f"legacy-token:{token_path.name}",
+                "legacy-token",
             )
 
     raise AuthError(
@@ -210,9 +213,23 @@ def perform_login(
     return result
 
 
+def _is_gmail_scope(scope: str) -> bool:
+    """True if an OAuth scope grants Gmail access.
+
+    Matches the exact scope forms Google issues — the full-access
+    ``https://mail.google.com/`` scope or a ``.../auth/gmail*`` scope — rather
+    than a loose ``"mail.google.com" in scope`` substring test, which a
+    look-alike host (e.g. ``mail.google.com.evil.example``) could satisfy.
+    """
+    return (
+        scope == "https://mail.google.com/"
+        or scope.startswith("https://www.googleapis.com/auth/gmail")
+    )
+
+
 def _profile_email(creds, scope_list: list[str]) -> str | None:
     """Best-effort account email via Gmail getProfile (needs a gmail scope)."""
-    if not any("gmail" in s or "mail.google.com" in s for s in scope_list):
+    if not any(_is_gmail_scope(s) for s in scope_list):
         return None
     try:
         from googleapiclient.discovery import build

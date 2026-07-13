@@ -18,6 +18,7 @@ sys.path.insert(0, str(_PLUGIN_ROOT / "cli"))
 import auth
 from commands.auth import (
     _account_status,
+    _is_gmail_scope,
     _list_accounts,
     _resolve_oauth_client,
     _setup_checklist,
@@ -80,7 +81,7 @@ class TestOAuthClientResolution:
             json.dumps({"installed": {"client_id": "file-id", "client_secret": "file-secret"}})
         )
         config, source = _resolve_oauth_client(None)
-        assert source.endswith("client_secret.json")
+        assert source == "config-dir"
         assert config["installed"]["client_id"] == "file-id"
 
     def test_explicit_client_secret_file_third(self, env, tmp_path):
@@ -89,13 +90,13 @@ class TestOAuthClientResolution:
             json.dumps({"installed": {"client_id": "flag-id", "client_secret": "flag-secret"}})
         )
         config, source = _resolve_oauth_client(str(secret))
-        assert source == str(secret)
+        assert source == "client-secret-file"
         assert config["installed"]["client_id"] == "flag-id"
 
     def test_legacy_token_client_reuse_last(self, env):
         (env.legacy_dir / ".google-token.json").write_text(json.dumps(_token_data()))
         config, source = _resolve_oauth_client(None)
-        assert source == "legacy-token:.google-token.json"
+        assert source == "legacy-token"
         assert config["installed"]["client_id"] == "cid"
 
     def test_nothing_found_raises_with_setup_hint(self, env):
@@ -113,7 +114,7 @@ class TestOAuthClientResolution:
             json.dumps({"installed": {"client_id": "flag-id", "client_secret": "flag-secret"}})
         )
         config, source = _resolve_oauth_client(str(secret))
-        assert source == str(secret)
+        assert source == "client-secret-file"
         assert config["installed"]["client_id"] == "flag-id"
 
     def test_explicit_flag_beats_env(self, env, monkeypatch, tmp_path):
@@ -124,7 +125,7 @@ class TestOAuthClientResolution:
             json.dumps({"installed": {"client_id": "flag-id", "client_secret": "flag-secret"}})
         )
         config, source = _resolve_oauth_client(str(secret))
-        assert source == str(secret)
+        assert source == "client-secret-file"
         assert config["installed"]["client_id"] == "flag-id"
 
 
@@ -339,7 +340,7 @@ class TestPerformLogin:
 
         result = perform_login(account="mail", email="m@example.com")
 
-        assert result["client_source"] == "legacy-token:.google-token-mail.json"
+        assert result["client_source"] == "legacy-token"
         assert Path(result["token_file"]) == legacy
         cfg = json.loads((env.config_dir / "accounts.json").read_text())
         assert cfg["accounts"]["mail"]["token_file"] == str(legacy)
@@ -457,3 +458,19 @@ class TestCliSmoke:
         assert "evil.json" not in (result.stdout + result.stderr)
         # no token file written outside the config dir
         assert list(env.config_dir.parent.glob("evil*")) == []
+
+
+class TestIsGmailScope:
+    """Exact scope matching — no loose host substring that a look-alike could pass."""
+
+    def test_matches_real_gmail_scopes(self):
+        assert _is_gmail_scope("https://mail.google.com/")
+        assert _is_gmail_scope("https://www.googleapis.com/auth/gmail.readonly")
+        assert _is_gmail_scope("https://www.googleapis.com/auth/gmail.send")
+
+    def test_rejects_non_gmail_and_lookalikes(self):
+        assert not _is_gmail_scope("https://www.googleapis.com/auth/calendar")
+        assert not _is_gmail_scope("https://www.googleapis.com/auth/drive")
+        # Look-alike host must NOT be accepted by a substring shortcut.
+        assert not _is_gmail_scope("https://mail.google.com.evil.example/")
+        assert not _is_gmail_scope("https://evil.example/?x=mail.google.com")
