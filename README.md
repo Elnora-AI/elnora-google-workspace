@@ -40,6 +40,10 @@ The slash commands and skills are Claude-Code-shaped, but the `gw` CLI is a plai
 Python program. Drop [`AGENTS.md`](AGENTS.md) at your project root and any agent
 can call it following the same rules (auth, JSON output, destructive-op confirmation).
 
+> **Installing via an AI agent?** Point it at [`INSTALL_FOR_AGENTS.md`](INSTALL_FOR_AGENTS.md)
+> — a gated, step-by-step runbook to verify the install, walk you through your own
+> Google Cloud OAuth client, authenticate, and smoke-test a real read.
+
 ---
 
 ## What you get

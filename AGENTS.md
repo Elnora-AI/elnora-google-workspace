@@ -4,6 +4,11 @@ Portable rules for any coding agent (Codex, Cursor, Claude Code, …) driving th
 plugin. The slash commands and skills are Claude-Code-shaped, but the CLI underneath
 is a plain Python program you can call directly.
 
+> **Setting the plugin up from scratch?** Follow [`INSTALL_FOR_AGENTS.md`](INSTALL_FOR_AGENTS.md)
+> — a gated, step-by-step runbook to verify the install, drive the user through
+> their own Google Cloud OAuth client, authenticate, and smoke-test. This file is
+> the day-to-day usage reference for after the install is done.
+
 ## Invoking the CLI
 
 - Preferred: the launcher `bin/gw` (POSIX) or `bin/gw.cmd` / `bin/gw.ps1` (Windows).
