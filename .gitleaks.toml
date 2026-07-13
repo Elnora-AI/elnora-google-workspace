@@ -1,0 +1,17 @@
+# gitleaks configuration for elnora-google-workspace.
+#
+# Extends the full default gitleaks ruleset and allowlists ONLY the synthetic
+# fake credentials in tests/test_output.py. Those strings exist solely to verify
+# the CLI's output credential-scrubber (lib/output.py) redacts secret-shaped
+# tokens; they are not real secrets. The allowlist is scoped to that one file so
+# a real secret committed anywhere else — including other test files — is still
+# caught.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Synthetic scrubber-test fixtures in tests/test_output.py are not real secrets"
+paths = [
+  '''tests/test_output\.py''',
+]

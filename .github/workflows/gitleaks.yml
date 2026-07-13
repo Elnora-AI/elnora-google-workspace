@@ -33,4 +33,4 @@ jobs:
       # Uses the open-source gitleaks binary directly (no org license required,
       # unlike gitleaks-action). Scans the full git history for committed secrets.
       - name: Scan git history
-        run: gitleaks detect --source . --redact --verbose --exit-code 1
+        run: gitleaks detect --source . --config .gitleaks.toml --redact --verbose --exit-code 1
