@@ -112,7 +112,9 @@ If you list a verification source for a claim, **actually run the check**. Don't
 
 Compose the body in your voice. Apply the channel-specific overlay from your voice guide, if you have one:
 
-- Cold outreach → under 150 words, lead with their problem, one CTA, sign off with your name, no emojis.
+**No manual signature.** Do NOT append a name / title / company / contact signature block. This Gmail account auto-appends the user's configured signature, so a manual one duplicates it. End the body at the closing line (e.g. `Best regards,`) at most — never type out the name/title/company/URL yourself.
+
+- Cold outreach → under 150 words, lead with their problem, one CTA, close with a short sign-off line only (no manual signature block), no emojis.
 - Inbound consulting → warm + specific deliverables, longer is OK if there's a real relationship, social proof stays.
 - Professional contacts (accountants, lawyers) → warm, context-before-ask, friendly close.
 - Reply to existing thread → respond to what they SAID, not what you think they're DOING. Keep tone consistent with the thread.
@@ -128,6 +130,7 @@ Compose the body in your voice. Apply the channel-specific overlay from your voi
 7. Emojis — zero in email body.
 8. Pending vs done — anything stated as complete that's actually pending someone else's approval?
 9. Commercial-relationship language (only for customer-facing material) — any reference to billable hours / consulting blocks / "the rest is in the next package"? Cut.
+10. Signature — NO manual name/title/company/contact block appended (Gmail auto-appends the account signature). Body ends at the closing line (e.g. "Best regards,") at most.
 
 ### Step 8 — Create the Gmail draft (never send)
 
