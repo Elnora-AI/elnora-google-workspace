@@ -4,7 +4,6 @@ Tests enrollment of Apollo export contacts into campaign CSVs with
 deduplication against contacts.csv and investor-contacts.csv.
 """
 
-import csv
 import json
 import sys
 from pathlib import Path

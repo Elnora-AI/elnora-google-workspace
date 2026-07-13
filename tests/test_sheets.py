@@ -1,6 +1,5 @@
 """Tests for sheets module — mocked Google API tests for read, write, append, list."""
 
-import json
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch

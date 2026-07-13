@@ -6,7 +6,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
 
 CLI = str(Path(__file__).resolve().parent.parent / "cli" / "gw.py")
 

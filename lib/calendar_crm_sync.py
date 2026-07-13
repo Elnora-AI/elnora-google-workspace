@@ -20,7 +20,7 @@ import json
 import os
 import re
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -34,7 +34,6 @@ _GW_LIB = _PLUGIN_ROOT / "lib"
 if str(_GW_LIB) not in sys.path:
     sys.path.insert(0, str(_GW_LIB))
 
-import calendar_ops
 import crm
 import gw_config
 

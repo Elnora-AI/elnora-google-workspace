@@ -232,7 +232,7 @@ def append(doc_id: str, content: str, account: str | None = None) -> dict:
 
     requests = [{"insertText": {"location": {"index": end_index}, "text": insert_text}}]
     try:
-        result = service.documents().batchUpdate(
+        service.documents().batchUpdate(
             documentId=doc_id, body={"requests": requests}
         ).execute()
     except HttpError as e:

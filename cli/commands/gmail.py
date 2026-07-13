@@ -404,3 +404,21 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
         with _handle_errors(compact):
             result = email_crm_sync.status()
             output_success(result, compact=compact)
+
+    @gmail.command(name="sync-crm-install")
+    @click.option("--interval-hours", default=2, type=int, help="Hours between runs (default: 2)")
+    def sync_crm_install(interval_hours):
+        """Schedule the email→CRM sync to run periodically.
+
+        Registered on the host's native scheduler automatically: launchd (macOS),
+        Task Scheduler (Windows), or the user crontab (Linux). Falls back to
+        printing the exact command if the scheduler can't be driven.
+        """
+        import scheduler
+        scheduler.install("gmail", interval_hours)
+
+    @gmail.command(name="sync-crm-uninstall")
+    def sync_crm_uninstall():
+        """Remove the scheduled email→CRM sync job from the native scheduler."""
+        import scheduler
+        scheduler.uninstall("gmail")

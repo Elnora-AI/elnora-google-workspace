@@ -34,6 +34,16 @@ Install [`Elnora-AI/knowledge-vault`](https://github.com/Elnora-AI/knowledge-vau
 meeting prep, and outreach. These settings tune that connector; every one is
 optional and each feature no-ops cleanly when unset.
 
+The CRM location is read from the knowledge-base config file itself (frontmatter
+keys, not env vars). Only `vault_path` is required — `gw crm init` scaffolds the
+CRM at `<vault_path>/crm`:
+
+| Config key | Purpose | Default |
+|---|---|---|
+| `vault_path` | Absolute path to your vault (written by knowledge-vault) | required |
+| `crm_dir` | Subfolder under the vault that holds the CRM CSVs | `crm` |
+| `company_dir` | Optional extra prefix nested between `vault_path` and `crm_dir` | empty |
+
 | Variable | Purpose | Default |
 |---|---|---|
 | `GW_KB_CONFIG` | Explicit path to the knowledge-base config markdown | discovered from CWD |

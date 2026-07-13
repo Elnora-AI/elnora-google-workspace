@@ -25,7 +25,6 @@ from __future__ import annotations
 import csv
 import io
 import json
-import os
 import re
 import sys
 from datetime import datetime, timezone
@@ -55,13 +54,9 @@ INTERNAL_DOMAINS = gw_config.internal_domains()
 STATE_FILE = gw_config.cache_dir() / "email-crm-sync-state.json"
 DEFAULT_LOOKBACK_DAYS = 2
 
-# CRM contact columns (must match contacts.csv schema)
-_CONTACTS_COLUMNS = [
-    "slug", "first_name", "last_name", "email", "linkedin_url", "company",
-    "role", "stage", "source", "campaign", "first_contact_date",
-    "last_contact_date", "last_contact_channel", "last_meeting_date",
-    "next_action", "next_action_date", "priority", "notes",
-]
+# CRM contact columns — canonical schema lives in crm.py so the writer here and
+# `gw crm init` can never drift.
+_CONTACTS_COLUMNS = crm.CONTACTS_COLUMNS
 
 # Stages that promote to 'replied' on the first inbound message we observe.
 # Past 'replied' is judgment territory — auto-promotion stops there.
@@ -201,11 +196,16 @@ def sync(
 
     email_index = _build_email_index()
     if not email_index:
-        return {
+        # Distinguish a missing CRM (actionable) from an empty-but-valid one
+        # (a fresh `crm init` with no contacts yet — a clean no-op, not an error).
+        result = {
             "processed": 0, "skipped_internal": 0, "skipped_unknown": 0,
             "skipped_already_processed": 0, "contacts_updated": 0,
-            "dry_run": dry_run, "error": "contacts.csv not found or empty",
+            "dry_run": dry_run,
         }
+        if not crm.contacts_csv_path().exists():
+            result["error"] = "contacts.csv not found — run `gw crm init` to scaffold it"
+        return result
 
     # 2. Walk each message, distinguishing inbound (sender external) from
     # outbound (sender internal). Inbound messages can promote stage; both
@@ -356,7 +356,8 @@ def _apply_inbound_updates(slug_latest: dict[str, str]) -> tuple[int, int]:
 
     out = io.StringIO()
     writer = csv.DictWriter(out, fieldnames=fieldnames, lineterminator="\n", quoting=csv.QUOTE_ALL)
-    writer.writeheader(); writer.writerows(sanitized)
+    writer.writeheader()
+    writer.writerows(sanitized)
     tmp = csv_path.with_suffix(".tmp")
     tmp.write_text(out.getvalue(), encoding="utf-8")
     tmp.replace(csv_path)
@@ -458,7 +459,8 @@ def _apply_updates_with_channel(slug_latest: dict[str, str], channel: str) -> in
 
     out = io.StringIO()
     writer = csv.DictWriter(out, fieldnames=fieldnames, lineterminator="\n", quoting=csv.QUOTE_ALL)
-    writer.writeheader(); writer.writerows(sanitized)
+    writer.writeheader()
+    writer.writerows(sanitized)
     tmp = csv_path.with_suffix(".tmp")
     tmp.write_text(out.getvalue(), encoding="utf-8")
     tmp.replace(csv_path)
