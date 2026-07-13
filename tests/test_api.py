@@ -381,7 +381,7 @@ class TestPagination:
         invoke_call(params_json='{"userId":"me"}', page_all=True)
         lines = capfd.readouterr().out.strip().splitlines()
         assert len(lines) == 3
-        assert [json.loads(l)["messages"][0]["id"] for l in lines] == ["m0", "m1", "m2"]
+        assert [json.loads(line)["messages"][0]["id"] for line in lines] == ["m0", "m1", "m2"]
 
     def test_cli_single_call_envelope(self, env, monkeypatch, capfd):
         pages = make_pages(1)

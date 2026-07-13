@@ -2,119 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from datetime import datetime, timezone as tz
-from pathlib import Path
 
 import click
 
 from output import output_success, _handle_errors
-
-
-# ---------------------------------------------------------------------------
-# Cross-platform scheduler for the optional CRM-sync jobs
-# ---------------------------------------------------------------------------
-
-def _gw_entrypoint() -> tuple[str, "Path"]:
-    """Return (python_executable, path to cli/gw.py) for scheduling a gw command."""
-    plugin_root = Path(__file__).resolve().parent.parent.parent
-    return sys.executable, plugin_root / "cli" / "gw.py"
-
-
-def _scheduler_env_passthrough() -> dict:
-    """GW_* environment variables to carry into a detached scheduled job.
-
-    A scheduler (launchd/cron/Task Scheduler) does not inherit your shell env,
-    so the knowledge-base location and connector settings must be captured.
-    """
-    import os
-    keys = ("GW_KB_CONFIG", "GW_CONFIG_DIR", "GW_INTERNAL_DOMAINS", "GW_EXA_LIB")
-    return {k: os.environ[k] for k in keys if os.environ.get(k)}
-
-
-def _scheduler_install(service: str, interval_hours: int) -> None:
-    """Install (macOS) or print (Linux/Windows) a periodic `gw <service> sync-crm` job."""
-    interval_hours = max(1, interval_hours)
-    python, gw_py = _gw_entrypoint()
-    label = f"com.gw.{service}-crm-sync"
-    env = _scheduler_env_passthrough()
-
-    if sys.platform == "darwin":
-        import plistlib
-        log_dir = Path.home() / "Library" / "Logs" / "gw"
-        log_dir.mkdir(parents=True, exist_ok=True)
-        plist = {
-            "Label": label,
-            "ProgramArguments": [python, str(gw_py), service, "sync-crm"],
-            "StartInterval": interval_hours * 3600,
-            "StandardOutPath": str(log_dir / f"{service}-crm-sync.out.log"),
-            "StandardErrorPath": str(log_dir / f"{service}-crm-sync.err.log"),
-            "RunAtLoad": False,
-        }
-        if env:
-            plist["EnvironmentVariables"] = env
-        dest = Path.home() / "Library" / "LaunchAgents" / f"{label}.plist"
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        with open(dest, "wb") as f:
-            plistlib.dump(plist, f)
-        import subprocess
-        subprocess.run(["launchctl", "unload", str(dest)], capture_output=True, text=True)
-        result = subprocess.run(["launchctl", "load", str(dest)], capture_output=True, text=True)
-        if result.returncode != 0:
-            click.echo(click.style(f"launchctl load failed: {result.stderr.strip()}", fg="red"))
-            raise SystemExit(1)
-        click.echo(click.style(f"Installed and loaded launchd job {label}.", fg="green"))
-        click.echo(f"  Plist:    {dest}")
-        click.echo(f"  Schedule: every {interval_hours}h")
-        click.echo(f"  Logs:     {log_dir}")
-        return
-
-    # Linux / Windows: print the exact command to schedule (no silent privilege use).
-    cmd = f'"{python}" "{gw_py}" {service} sync-crm'
-    env_prefix = " ".join(f'{k}="{v}"' for k, v in env.items())
-    click.echo(click.style(
-        f"Automatic scheduling is implemented for macOS (launchd). On this "
-        f"platform ({sys.platform}), add the job with your scheduler:", fg="yellow"))
-    if sys.platform == "win32":
-        click.echo("\nWindows Task Scheduler (runs every N hours):")
-        click.echo(
-            f'  schtasks /Create /TN "gw-{service}-crm-sync" /SC HOURLY '
-            f'/MO {interval_hours} /TR {cmd}'
-        )
-        if env:
-            click.echo("  Set these environment variables for the task's account first:")
-            for k, v in env.items():
-                click.echo(f'    setx {k} "{v}"')
-        click.echo(f'\nRemove with:  schtasks /Delete /TN "gw-{service}-crm-sync" /F')
-    else:
-        click.echo("\ncron (every N hours):")
-        line = f"0 */{interval_hours} * * * "
-        if env_prefix:
-            line += env_prefix + " "
-        line += cmd
-        click.echo(f"  {line}")
-        click.echo("  Add it with:  crontab -e")
-        click.echo("\nOr a systemd user timer — see the plugin README (Scheduling).")
-
-
-def _scheduler_uninstall(service: str) -> None:
-    """Remove the scheduled job (macOS), or print how to remove it elsewhere."""
-    label = f"com.gw.{service}-crm-sync"
-    if sys.platform == "darwin":
-        import subprocess
-        plist_path = Path.home() / "Library" / "LaunchAgents" / f"{label}.plist"
-        if not plist_path.exists():
-            click.echo(click.style("Launchd job not installed.", fg="yellow"))
-            return
-        subprocess.run(["launchctl", "unload", str(plist_path)], capture_output=True, text=True)
-        plist_path.unlink(missing_ok=True)
-        click.echo(click.style(f"Uninstalled launchd job {label}.", fg="green"))
-        return
-    if sys.platform == "win32":
-        click.echo(f'Remove the scheduled task with:  schtasks /Delete /TN "gw-{service}-crm-sync" /F')
-    else:
-        click.echo("Remove the cron line with:  crontab -e  (or disable the systemd user timer).")
 
 
 def register(cli_group: click.Group, account_option, compact_option) -> None:
@@ -381,13 +274,15 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     def sync_crm_install(interval_hours):
         """Schedule the calendar→CRM sync to run periodically.
 
-        macOS is fully automated via a launchd LaunchAgent. On Linux and Windows
-        the exact cron / systemd-timer / Task Scheduler command is printed for
-        you to install (no elevated permissions are taken on your behalf).
+        Registered on the host's native scheduler automatically: launchd (macOS),
+        Task Scheduler (Windows), or the user crontab (Linux). Falls back to
+        printing the exact command if the scheduler can't be driven.
         """
-        _scheduler_install("calendar", interval_hours)
+        import scheduler
+        scheduler.install("calendar", interval_hours)
 
     @calendar.command(name="sync-crm-uninstall")
     def sync_crm_uninstall():
-        """Remove the scheduled calendar→CRM sync job (macOS), or print how to."""
-        _scheduler_uninstall("calendar")
+        """Remove the scheduled calendar→CRM sync job from the native scheduler."""
+        import scheduler
+        scheduler.uninstall("calendar")

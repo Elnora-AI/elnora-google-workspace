@@ -9,7 +9,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
 from output import CliError
 from template_utils import (
-    TEMPLATES_DIR,
     load_template,
     parse_template,
     safe_format,

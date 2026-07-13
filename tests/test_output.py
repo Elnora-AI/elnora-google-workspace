@@ -2,7 +2,6 @@
 
 import json
 import sys
-from io import StringIO
 
 import pytest
 

@@ -26,12 +26,29 @@ _parse_frontmatter = gw_config.parse_frontmatter
 
 _cached_config: dict[str, str] | None = None
 
+# Canonical contacts.csv schema — the single source of truth for the CRM table.
+# `gw crm init` scaffolds this header; email_crm_sync imports it so the writer and
+# the scaffolder can never drift. Keep additive: append new columns at the end.
+CONTACTS_COLUMNS = [
+    "slug", "first_name", "last_name", "email", "linkedin_url", "company",
+    "role", "stage", "source", "campaign", "first_contact_date",
+    "last_contact_date", "last_contact_channel", "last_meeting_date",
+    "next_action", "next_action_date", "priority", "notes",
+]
+
+# Minimal companies.csv schema, scaffolded alongside contacts.csv.
+COMPANIES_COLUMNS = ["slug", "name", "domain", "industry", "stage", "notes"]
+
 
 def load_config() -> dict[str, str]:
     """Load knowledge-base config and return as a dict.
 
-    Expected keys: vault_path, company_dir, crm_dir
-    Result is cached after first successful load.
+    Only ``vault_path`` is required — the file that any knowledge-vault-style
+    plugin writes. ``company_dir`` defaults to empty (CRM lives directly under
+    the vault) and ``crm_dir`` defaults to ``crm``, so a fresh vault gets a
+    working CRM at ``<vault>/crm`` with zero extra configuration. Configs that
+    set those keys explicitly (to nest the CRM elsewhere in the vault) keep
+    working unchanged. Result is cached after first successful load.
     """
     global _cached_config
     if _cached_config is not None:
@@ -46,14 +63,38 @@ def load_config() -> dict[str, str]:
     content = config_path.read_text(encoding="utf-8")
     config = gw_config.parse_frontmatter(content)
 
-    for key in ("vault_path", "company_dir", "crm_dir"):
-        if key not in config:
-            raise CliError(
-                f"Missing '{key}' in knowledge-base config",
-                suggestion=f"Add '{key}' to {config_path}",
-            )
+    if "vault_path" not in config:
+        raise CliError(
+            "Missing 'vault_path' in knowledge-base config",
+            suggestion=f"Add 'vault_path' to {config_path}",
+        )
+    config.setdefault("company_dir", "")
+    config.setdefault("crm_dir", "crm")
     _cached_config = config
     return config
+
+
+def init_crm() -> dict[str, list[str]]:
+    """Scaffold an empty CRM (``contacts.csv`` + ``companies.csv``) under the vault.
+
+    Creates the CRM directory and header-only CSVs if they don't already exist.
+    Idempotent: existing files are left untouched (never overwritten). Returns
+    ``{"created": [...], "existing": [...]}`` of absolute paths for reporting.
+    """
+    created: list[str] = []
+    existing: list[str] = []
+    crm_path().mkdir(parents=True, exist_ok=True)
+    for path, columns in (
+        (contacts_csv_path(), CONTACTS_COLUMNS),
+        (companies_csv_path(), COMPANIES_COLUMNS),
+    ):
+        if path.exists():
+            existing.append(str(path))
+            continue
+        with open(path, "w", encoding="utf-8", newline="") as f:
+            csv.writer(f, lineterminator="\n", quoting=csv.QUOTE_ALL).writerow(columns)
+        created.append(str(path))
+    return {"created": created, "existing": existing}
 
 
 def crm_path() -> Path:
@@ -129,7 +170,7 @@ def read_campaign_csv(campaign_name: str) -> list[dict[str, str]]:
     if not path.exists():
         raise CliError(
             f"Campaign CSV not found: {path}",
-            suggestion=f"Check campaigns/ directory for available campaigns.",
+            suggestion="Check campaigns/ directory for available campaigns.",
         )
     with open(path, encoding="utf-8", newline="") as f:
         reader = csv.DictReader(f)
@@ -161,7 +202,6 @@ def update_contact(slug: str, updates: dict[str, str]) -> None:
     Only updates fields that are present in the updates dict.
     Preserves all other fields and rows.
     """
-    path = contacts_csv_path()
     contacts = read_contacts_csv()
 
     found = False
@@ -188,7 +228,6 @@ def batch_update_contacts(updates_by_slug: dict[str, dict[str, str]]) -> None:
     """
     if not updates_by_slug:
         return
-    path = contacts_csv_path()
     contacts = read_contacts_csv()
 
     for contact in contacts:
@@ -201,7 +240,6 @@ def batch_update_contacts(updates_by_slug: dict[str, dict[str, str]]) -> None:
 
 def append_contact(contact: dict[str, str]) -> None:
     """Append a new contact row to contacts.csv."""
-    path = contacts_csv_path()
     existing = read_contacts_csv()
 
     # Check for duplicate slug

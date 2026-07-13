@@ -97,25 +97,46 @@ is baked in.
   0600 JSON file under the config dir. Nothing is ever written into the repo.
 - Full option list: [`settings.example.md`](settings.example.md).
 
-## Optional knowledge-base connector
+## The self-driving system (with knowledge-vault)
 
 Install [`Elnora-AI/knowledge-vault`](https://github.com/Elnora-AI/knowledge-vault)
-(or any plugin that writes `.claude/knowledge-base.local.md`) to auto-enable a CRM
-connector: calendar/email → CRM sync (`gw calendar sync-crm`, `gw gmail sync-crm`),
-meeting prep (`/prep-meeting`), and outreach. Every connector feature degrades to a
-clean no-op when no knowledge base is configured — the core Google commands never
-depend on it.
+alongside this plugin and the two compose into one system that quietly keeps itself
+up to date: Gmail and Calendar are the senses, the vault is the memory, and a
+scheduled sync keeps a CRM fresh from your real activity. Each plugin still works
+on its own — knowledge-vault is a full vault without Google, and every Google
+command here works without a vault.
 
-Tune the connector with `GW_INTERNAL_DOMAINS`, `GW_TRANSCRIPT_DIRS`,
-`GW_SLACK_USER_ID`, `GW_SLACK_CLI_BIN`, and `GW_EXA_LIB` (see
-[`settings.example.md`](settings.example.md)).
+Batteries-included setup (once both plugins are installed):
 
-## Scheduling (optional)
+```sh
+gw auth setup                 # one-time Google sign-in
+gw crm init                   # scaffold contacts.csv + companies.csv in your vault
+gw gmail sync-crm-install     # schedule email → CRM (auto-registers, see below)
+gw calendar sync-crm-install  # schedule calendar → CRM
+```
 
-`gw calendar sync-crm-install` schedules the CRM sync to run periodically. On macOS
-it installs a launchd LaunchAgent automatically; on Linux and Windows it prints the
-exact `cron` / `schtasks` command to add (no elevated permissions are taken on your
-behalf). Remove it with `gw calendar sync-crm-uninstall`.
+`gw crm init` needs only `vault_path` in `.claude/knowledge-base.local.md` — the file
+knowledge-vault writes. The CRM lands at `<vault>/crm` by default (override with
+`crm_dir`, or nest under `company_dir`). From then on the sync bumps
+`last_contact_date`, promotes pipeline stages, and links meetings — no manual work.
+
+Every connector feature degrades to a clean no-op when no knowledge base is
+configured; the core Google commands never depend on it. Tune it with
+`GW_INTERNAL_DOMAINS`, `GW_TRANSCRIPT_DIRS`, `GW_SLACK_USER_ID`, `GW_SLACK_CLI_BIN`,
+and `GW_EXA_LIB` (see [`settings.example.md`](settings.example.md)).
+
+## Scheduling
+
+`gw gmail sync-crm-install` and `gw calendar sync-crm-install` register the CRM sync
+on your OS's native scheduler automatically — launchd (macOS), Task Scheduler
+(Windows), or the user crontab (Linux) — pinning the resolved knowledge-base config
+so the detached job finds the same vault. If the scheduler can't be driven, the exact
+command is printed instead (no elevated permissions are ever taken on your behalf).
+`--interval-hours N` sets the cadence (default 2). Remove either with the matching
+`sync-crm-uninstall`.
+
+> Windows and Linux auto-registration is implemented but still pending a live
+> verification pass on those platforms; macOS is fully verified.
 
 ## Safety
 

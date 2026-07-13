@@ -101,7 +101,6 @@ def test_create_validates_attendee_emails(patch_calendar):
 def test_create_uses_local_tz_when_naive():
     """Verify that naive datetimes get local timezone, not UTC."""
     import calendar_ops
-    from datetime import datetime
     # We can't easily mock ZoneInfo("localtime"), but we can verify the logic
     # by passing a naive datetime and checking the event body
     # Just verify the function handles it without error

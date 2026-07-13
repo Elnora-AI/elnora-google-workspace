@@ -1,0 +1,9 @@
+# Ruff configuration. Runs on the default E/F rule set (same as the other public
+# repos), with one repo-specific exception:
+#
+# E402 (module-import-not-at-top-of-file) is ignored because the CLI bootstraps
+# its own import path — each entrypoint inserts `lib/` into sys.path before
+# importing the plugin modules, which is a deliberate, load-bearing pattern for a
+# self-contained plugin, not a mistake.
+[lint]
+ignore = ["E402"]

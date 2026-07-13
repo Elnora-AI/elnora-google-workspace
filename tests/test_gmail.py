@@ -1,15 +1,14 @@
 """Tests for gmail module — mocked Google API tests for send, draft, list, get, reply, labels, scan."""
 
-import json
 import sys
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 
-from output import AuthError, CliError, NotFoundError, RateLimitError, ValidationError
+from output import NotFoundError, RateLimitError, ValidationError
 
 
 # ---------------------------------------------------------------------------

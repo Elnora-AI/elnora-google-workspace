@@ -13,7 +13,7 @@ import random
 import time
 from typing import Any, Callable, TypeVar
 
-from output import CliError, RateLimitError
+from output import RateLimitError
 
 T = TypeVar("T")
 

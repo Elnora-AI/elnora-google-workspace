@@ -1,7 +1,5 @@
 """Tests for crm module — CSV operations, config caching, formula injection prevention."""
 
-import csv
-import io
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -175,15 +173,79 @@ def test_load_config_missing_file():
             crm.load_config()
 
 
-def test_load_config_missing_key(tmp_path):
-    """Missing required key should raise CliError."""
+def test_load_config_only_vault_path_uses_defaults(tmp_path):
+    """vault_path is the only required key; company_dir/crm_dir default sensibly.
+
+    This is what a fresh knowledge-vault user has, and it must yield a working CRM
+    at ``<vault>/crm`` with no extra configuration.
+    """
     config_file = tmp_path / "kb.md"
     config_file.write_text("---\nvault_path: /tmp/vault\n---\n", encoding="utf-8")
 
     crm._cached_config = None
     with patch.object(crm.gw_config, "find_kb_config", return_value=config_file):
-        with pytest.raises(CliError, match="Missing"):
+        config = crm.load_config()
+    assert config["vault_path"] == "/tmp/vault"
+    assert config["company_dir"] == ""
+    assert config["crm_dir"] == "crm"
+    assert crm.crm_path() == Path("/tmp/vault/crm")
+
+
+def test_load_config_missing_vault_path(tmp_path):
+    """Missing vault_path (the one required key) should raise CliError."""
+    config_file = tmp_path / "kb.md"
+    config_file.write_text("---\nnotes_dir: notes\n---\n", encoding="utf-8")
+
+    crm._cached_config = None
+    with patch.object(crm.gw_config, "find_kb_config", return_value=config_file):
+        with pytest.raises(CliError, match="Missing 'vault_path'"):
             crm.load_config()
+
+
+def _kb_config(tmp_path):
+    config_file = tmp_path / "kb.md"
+    config_file.write_text(
+        f"---\nvault_path: {tmp_path / 'vault'}\n---\n", encoding="utf-8"
+    )
+    return config_file
+
+
+def test_init_crm_scaffolds_csvs(tmp_path):
+    """init_crm creates header-only contacts.csv + companies.csv under <vault>/crm."""
+    config_file = _kb_config(tmp_path)
+    crm._cached_config = None
+    with patch.object(crm.gw_config, "find_kb_config", return_value=config_file):
+        result = crm.init_crm()
+        contacts = crm.contacts_csv_path()
+        companies = crm.companies_csv_path()
+
+    assert contacts.exists() and companies.exists()
+    assert len(result["created"]) == 2 and result["existing"] == []
+    # Header matches the canonical schema, single source of truth.
+    header = contacts.read_text(encoding="utf-8").splitlines()[0]
+    assert [c.strip('"') for c in header.split(",")] == crm.CONTACTS_COLUMNS
+    # No data rows — a clean empty CRM.
+    assert len(crm.read_contacts_csv()) == 0
+
+
+def test_init_crm_is_idempotent(tmp_path):
+    """A second init leaves existing files untouched and reports them as existing."""
+    config_file = _kb_config(tmp_path)
+    crm._cached_config = None
+    with patch.object(crm.gw_config, "find_kb_config", return_value=config_file):
+        crm.init_crm()
+        crm.contacts_csv_path().write_text("sentinel", encoding="utf-8")  # user data
+        result = crm.init_crm()
+        assert result["created"] == []
+        assert len(result["existing"]) == 2
+        # Existing file was NOT overwritten.
+        assert crm.contacts_csv_path().read_text(encoding="utf-8") == "sentinel"
+
+
+def test_schema_shared_with_email_sync():
+    """email_crm_sync must reuse the canonical schema — no drift."""
+    import email_crm_sync
+    assert email_crm_sync._CONTACTS_COLUMNS is crm.CONTACTS_COLUMNS
 
 
 # ---------------------------------------------------------------------------
