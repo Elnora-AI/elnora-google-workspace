@@ -37,8 +37,12 @@ for you and stops only where Google needs a human to click.
 ### Using Codex, Cursor, or another agent
 
 The slash commands and skills are Claude-Code-shaped, but the `gw` CLI is a plain
-Python program. Drop [`AGENTS.md`](AGENTS.md) at your project root and any agent
-can call it following the same rules (auth, JSON output, destructive-op confirmation).
+Python program. For first-run setup under any agent, hand it
+[`INSTALL_FOR_AGENTS.md`](INSTALL_FOR_AGENTS.md) — a gated, step-by-step runbook
+that builds the venv, helps create the OAuth client (driving the browser where it
+can), authenticates, and verifies a real read. For day-to-day use afterwards, drop
+[`AGENTS.md`](AGENTS.md) at your project root and any agent can call the CLI
+following the same rules (auth, JSON output, destructive-op confirmation).
 
 ---
 
@@ -109,7 +113,7 @@ command here works without a vault.
 Batteries-included setup (once both plugins are installed):
 
 ```sh
-gw auth setup                 # one-time Google sign-in
+gw auth login                 # one-time Google sign-in (browser OAuth; run /gw-setup first for the OAuth client)
 gw crm init                   # scaffold contacts.csv + companies.csv in your vault
 gw gmail sync-crm-install     # schedule email → CRM (auto-registers, see below)
 gw calendar sync-crm-install  # schedule calendar → CRM

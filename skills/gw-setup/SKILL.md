@@ -27,14 +27,16 @@ root that contains `cli/gw.py`).
 
 1. Detect Python: prefer `uv` if present (`uv --version`), else `python3 --version`
    (fall back to `python`). Require Python 3.10+.
-2. Create the plugin-local venv and install deps (idempotent):
+2. Create the plugin-local venv and install deps from `requirements.txt`
+   (idempotent — the single source of truth for the dependency set):
    - With uv: `uv venv "$PLUGIN_ROOT/.venv"` then
-     `uv pip install --python "$PLUGIN_ROOT/.venv" google-api-python-client google-auth-oauthlib click keyring`
+     `uv pip install --python "$PLUGIN_ROOT/.venv" -r "$PLUGIN_ROOT/requirements.txt"`
    - Without uv: `python3 -m venv "$PLUGIN_ROOT/.venv"` then
-     `"$PLUGIN_ROOT/.venv/bin/pip" install google-api-python-client google-auth-oauthlib click keyring`
+     `"$PLUGIN_ROOT/.venv/bin/pip" install -r "$PLUGIN_ROOT/requirements.txt"`
      (Windows: `"$PLUGIN_ROOT\.venv\Scripts\pip.exe"`).
-   `keyring` is optional but recommended (OS-keychain token storage); if it fails
-   to build, install the rest and continue — tokens fall back to a 0600 file.
+   `keyring` is listed in `requirements.txt` but optional at runtime (OS-keychain
+   token storage); if it fails to build, install the rest and continue — tokens
+   fall back to a 0600 file.
 3. Ensure the launcher is executable: `chmod +x "$PLUGIN_ROOT/bin/gw"` (POSIX).
    On Windows use `bin/gw.cmd` or `bin/gw.ps1`.
 4. Verify: `gw --version` prints `gw, version 1.0.0`. If not, fix before continuing.

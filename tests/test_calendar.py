@@ -65,16 +65,16 @@ def test_update_meet_false_removes_link(patch_calendar):
     cal_mod, mock_svc = patch_calendar
     mock_svc.events().get().execute.return_value = {
         "id": "evt3",
-        "summary": "Lukas Levi party",
-        "start": {"dateTime": "2026-03-01T18:00:00+00:00", "timeZone": "Europe/Tallinn"},
-        "end": {"dateTime": "2026-03-01T21:00:00+00:00", "timeZone": "Europe/Tallinn"},
+        "summary": "Quarterly review",
+        "start": {"dateTime": "2026-03-01T18:00:00+00:00", "timeZone": "America/New_York"},
+        "end": {"dateTime": "2026-03-01T21:00:00+00:00", "timeZone": "America/New_York"},
         "conferenceData": {
             "entryPoints": [{"entryPointType": "video", "uri": "https://meet.google.com/abc-defg-hij"}]
         },
     }
     mock_svc.events().patch().execute.return_value = {
         "id": "evt3",
-        "summary": "Lukas Levi party",
+        "summary": "Quarterly review",
         "start": {"dateTime": "2026-03-01T18:00:00+00:00"},
         "end": {"dateTime": "2026-03-01T21:00:00+00:00"},
     }
@@ -125,16 +125,16 @@ def test_create_with_location(patch_calendar):
         "summary": "Office visit",
         "start": {"dateTime": "2026-03-01T14:00:00+00:00"},
         "end": {"dateTime": "2026-03-01T14:30:00+00:00"},
-        "location": "123 Main St, Tallinn",
+        "location": "123 Main St, Springfield",
         "htmlLink": "https://calendar.google.com/event?eid=evt4",
     }
     result = cal_mod.create(
         title="Office visit", start="2026-03-01T14:00:00+00:00",
-        location="123 Main St, Tallinn",
+        location="123 Main St, Springfield",
     )
-    assert result["location"] == "123 Main St, Tallinn"
+    assert result["location"] == "123 Main St, Springfield"
     body = mock_svc.events().insert.call_args[1]["body"]
-    assert body["location"] == "123 Main St, Tallinn"
+    assert body["location"] == "123 Main St, Springfield"
 
 
 def test_list_events_success(patch_calendar):
