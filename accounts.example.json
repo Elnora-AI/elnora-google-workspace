@@ -1,0 +1,14 @@
+{
+  "_comment": "Example only. Your real config lives at $GW_CONFIG_DIR/accounts.json (default ~/.config/gw/accounts.json) and is gitignored. Create/populate it with `gw auth login --account <name>`. token_storage is 'keyring' (OS keychain, needs the optional keyring package) or 'file' (0600 JSON). token_file is optional; relative paths resolve under the config dir.",
+  "default": "main",
+  "accounts": {
+    "main": {
+      "email": "you@example.com",
+      "token_storage": "keyring"
+    },
+    "work": {
+      "email": "work@example.com",
+      "token_storage": "file"
+    }
+  }
+}

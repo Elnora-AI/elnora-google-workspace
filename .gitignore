@@ -1,0 +1,41 @@
+# Per-user OAuth tokens and credentials — NEVER commit
+.google-token*.json
+credentials*.json
+client_secret*.json
+accounts.json
+
+# Maintainer's private denylist for the secret guard — NEVER commit
+scripts/.no-secrets-denylist.txt
+
+# Per-user local config — NEVER commit
+.claude/knowledge-base.local.md
+
+# Environment files
+.env
+.env.*
+
+# Node.js (CI tooling / guard scripts only)
+node_modules/
+*.tgz
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.venv*/
+venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Runtime cache / logs (per-user)
+cache/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

@@ -1,0 +1,22 @@
+{
+  "name": "elnora-google-workspace",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Google Workspace for Claude Code — tooling and CI for the google-workspace plugin marketplace.",
+  "license": "Apache-2.0",
+  "author": "Elnora AI <opensource@elnora.ai> (https://github.com/Elnora-AI)",
+  "homepage": "https://github.com/Elnora-AI/elnora-google-workspace",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Elnora-AI/elnora-google-workspace.git"
+  },
+  "type": "module",
+  "scripts": {
+    "check:secrets": "node scripts/check-no-secrets.mjs",
+    "check:json": "node scripts/check-json.mjs",
+    "check": "npm run check:secrets && npm run check:json"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

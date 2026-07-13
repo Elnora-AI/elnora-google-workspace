@@ -1,0 +1,34 @@
+name: Feature Request
+description: Suggest a new command, skill, or capability
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: input
+    id: surface
+    attributes:
+      label: What command, skill, or area?
+      description: Name the command/skill/area this relates to.
+      placeholder: "e.g., gw gmail, gw calendar, gw sheets, gw api escape hatch, OAuth / multi-account"
+    validations:
+      required: true
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use Case
+      description: Describe what you're trying to accomplish. What problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: Describe how the feature would work from a user's perspective.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you tried any workarounds or alternative approaches?
+    validations:
+      required: false
