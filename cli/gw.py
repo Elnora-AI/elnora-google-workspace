@@ -12,6 +12,18 @@ import sys
 import traceback
 from pathlib import Path
 
+# Force UTF-8 on stdout/stderr so non-ASCII help text and JSON data (accented
+# names, em dashes, arrows) don't raise UnicodeEncodeError when output is a pipe
+# on a Windows cp1252 locale (CI, redirection). A real console already handles
+# Unicode via WriteConsoleW; this covers the piped/redirected case.
+for _stream in (sys.stdout, sys.stderr):
+    _reconfigure = getattr(_stream, "reconfigure", None)
+    if _reconfigure is not None:
+        try:
+            _reconfigure(encoding="utf-8")
+        except (ValueError, OSError):
+            pass
+
 # Add lib/ and cli/ to path so we can import our modules
 _PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 _CLI_DIR = Path(__file__).resolve().parent

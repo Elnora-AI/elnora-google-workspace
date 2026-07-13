@@ -47,6 +47,15 @@ class TestHelpAndVersion:
         assert code == 0
         assert re.search(r"\bgw, version \d+\.\d+\.\d+\b", stdout.strip())
 
+    def test_help_survives_non_utf8_locale(self):
+        # Regression: em dashes in the gmail/calendar group help crashed with
+        # UnicodeEncodeError (exit 1) when stdout was a pipe under a Windows
+        # cp1252 locale. The CLI now forces UTF-8 stdout so help renders
+        # regardless of the ambient locale encoding.
+        for group in ("gmail", "calendar"):
+            _, _, code = run(group, "--help", env_override={"PYTHONIOENCODING": "cp1252"})
+            assert code == 0, f"{group} --help crashed under a cp1252 locale"
+
 
 # ---------------------------------------------------------------------------
 # Subcommand help
