@@ -14,7 +14,7 @@ Generate a pre-meeting brief for a Google Calendar event and deliver it to you o
 ## Run
 
 ```bash
-python3 plugins/google-workspace/cli/prep_meeting.py {{ARGUMENTS}}
+python3 ${CLAUDE_PLUGIN_ROOT}/cli/prep_meeting.py {{ARGUMENTS}}
 ```
 
 The CLI accepts either an event ID or a title substring (it'll search the next 3 days of calendar events).

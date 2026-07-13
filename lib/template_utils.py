@@ -101,7 +101,7 @@ def load_template(name: str) -> str:
     if not path.exists():
         raise CliError(
             f"Template not found: {name}.md",
-            suggestion="Check CRM templates/ or plugins/google-workspace/templates/ for available templates.",
+            suggestion="Check the templates/ directory for available templates.",
         )
     content = path.read_text(encoding="utf-8")
     _template_cache[name] = content

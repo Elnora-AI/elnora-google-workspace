@@ -20,6 +20,8 @@ Routes to service-specific skills. Use the right skill for your task:
 | Manage to-dos | **gw-tasks** |
 | Read/create/edit documents | **gw-docs** |
 | Create / edit Google Forms, read metadata and responses | **gw-forms** |
+| List, upload, download, share, organize Drive files & folders | **gw-drive** |
+| Call ANY Google API method (Discovery), inspect schemas | **gw-api** |
 
 **Attachments are supported** on every sending verb: `send`, `draft`, `draft-reply`, `draft-reply-all`, `reply`, `reply-all`, `update-draft`, and `attach-to-draft`. Use `--attach /path/to/file` and repeat for multiple files. See **gw-gmail** skill for examples.
 

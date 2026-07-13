@@ -63,7 +63,7 @@ $CLI enroll --campaign CAMPAIGN_NAME --sequence SEQUENCE_NAME --input APOLLO_JSO
 
 ## Campaign CRM (CSV)
 
-Contact lists live in vault-based CSV files at `{vault_path}/{company_dir}/10-crm/campaigns/`, **not Google Sheets**. The `--sheet` flag is for legacy/optional Sheets support. For CSV-based campaigns, read/write the CSV directly.
+Contact lists live in vault-based CSV files at `{vault_path}/{company_dir}/{crm_dir}/campaigns/`, **not Google Sheets**. The `--sheet` flag is for legacy/optional Sheets support. For CSV-based campaigns, read/write the CSV directly.
 
 Example campaign file:
 - `q3-outreach.csv` — your campaign CSV
@@ -86,7 +86,7 @@ The `scan` command is idempotent — safe to run repeatedly.
 # Create ~/Library/LaunchAgents/com.gw.outreach-scan.plist
 
 # cron — scan every 30 min during business hours (Mon-Fri, 8am-6pm)
-# */30 8-18 * * 1-5 cd /path/to/repo && python3 plugins/google-workspace/agents/cold_outreach_agent.py scan --campaign CAMPAIGN --account work --compact
+# */30 8-18 * * 1-5 cd /path/to/elnora-google-workspace && python3 agents/cold_outreach_agent.py scan --campaign CAMPAIGN --account work --compact
 ```
 
 ## Reference

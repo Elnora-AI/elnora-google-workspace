@@ -33,13 +33,13 @@ If your knowledge base is configured (`.claude/knowledge-base.local.md`), the gu
 
 If a thread-id was passed:
 ```bash
-python3 plugins/google-workspace/cli/gw.py gmail get-thread <thread-id> --compact
+python3 ${CLAUDE_PLUGIN_ROOT}/cli/gw.py gmail get-thread <thread-id> --compact
 ```
 
 Extract the external participant(s) (sender + non-internal Cc). For each one:
 
-1. Look them up in `vault: 10-crm/contacts.csv` by email. If found, capture: slug, full name, role, company, stage, last_contact_date, last_contact_channel, last_meeting_date, next_action, priority, notes.
-2. Look up their company in `vault: 10-crm/companies.csv` by name. Capture: slug, stage, NTE/billed/remaining (KPI columns), notes.
+1. Look them up in `vault: {crm_dir}/contacts.csv` by email. If found, capture: slug, full name, role, company, stage, last_contact_date, last_contact_channel, last_meeting_date, next_action, priority, notes.
+2. Look up their company in `vault: {crm_dir}/companies.csv` by name. Capture: slug, stage, NTE/billed/remaining (KPI columns), notes.
 3. **If their company stage is `active-customer` or `customer`**, also read the CRM's company/account detail file (its per-company Markdown file) for the rich relationship context (current state, open contracts, recent invoices, timeline, open items).
 
 If no thread-id (new email), the recipient email is in $ARGUMENTS. Same lookups.
@@ -68,13 +68,13 @@ If the recipient is at a paying customer, also read the CRM's company/account de
 For a reply, read the full thread to know what was actually said most recently:
 
 ```bash
-python3 plugins/google-workspace/cli/gw.py gmail get-thread <thread-id> --compact
+python3 ${CLAUDE_PLUGIN_ROOT}/cli/gw.py gmail get-thread <thread-id> --compact
 ```
 
 Then read the latest 1-2 messages in full:
 
 ```bash
-python3 plugins/google-workspace/cli/gw.py gmail get <message-id> --compact
+python3 ${CLAUDE_PLUGIN_ROOT}/cli/gw.py gmail get <message-id> --compact
 ```
 
 Extract: what they asked, what tone they used, any specific claims/numbers/dates they made that you'll need to respond to or verify.
@@ -135,7 +135,7 @@ Use `gmail draft` for new emails or `gmail draft_reply` for replies:
 
 ```bash
 # New email
-python3 plugins/google-workspace/cli/gw.py gmail draft \
+python3 ${CLAUDE_PLUGIN_ROOT}/cli/gw.py gmail draft \
   --to "<recipient>" \
   --subject "<subject>" \
   --body "<body>" \
@@ -143,7 +143,7 @@ python3 plugins/google-workspace/cli/gw.py gmail draft \
   --compact
 
 # Reply
-python3 plugins/google-workspace/cli/gw.py gmail draft-reply \
+python3 ${CLAUDE_PLUGIN_ROOT}/cli/gw.py gmail draft-reply \
   <message-id-of-the-message-you're-replying-to> \
   --body "<body>" \
   --compact
