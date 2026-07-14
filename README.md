@@ -149,6 +149,16 @@ operations, OS-keyring or 0600-file token storage, path-traversal validation,
 credential scrubbing from all output, trash-not-delete for Drive, and draft-first
 outreach. See [SAFETY.md](SAFETY.md).
 
+## Part of the Elnora family
+
+This plugin is one of a family of universal, config-driven Claude Code tools from [Elnora AI](https://github.com/Elnora-AI). Each tool is fully standalone — install just this one and everything above works. Install siblings and they start chaining automatically, no extra wiring:
+
+- **[knowledge-vault](https://github.com/Elnora-AI/knowledge-vault)** — a plain-Markdown knowledge base with a CSV-backed CRM and task system. With both installed, Gmail and Calendar become the senses and the vault becomes the memory: `gw gmail sync-crm-install` and `gw calendar sync-crm-install` schedule syncs that bump `last_contact_date`, promote pipeline stages, and link meetings to contacts, while `/draft-email` and `/prep-meeting` pull CRM context into your writing, and actionable emails can be triaged straight into the vault's task system.
+- **[elnora-slack](https://github.com/Elnora-AI/elnora-slack)** — the full Slack Web API as an agent-friendly CLI. The CRM connector here already knows how to read your Slack activity (`GW_SLACK_CLI_BIN`, `GW_SLACK_USER_ID`) so DMs count toward last-contact tracking, and meeting prep can pull Slack threads alongside email history.
+- **[elnora-linear](https://github.com/Elnora-AI/elnora-linear)** — Linear issue tracking from Claude Code. Chain it with Gmail here to turn an email thread into a tracked issue, or reference Linear context when drafting replies about in-flight work.
+
+Every chain degrades to a clean no-op when the sibling isn't installed — the core Google commands never depend on anything else. Browse the whole family at [github.com/Elnora-AI](https://github.com/Elnora-AI).
+
 ## Development
 
 ```
