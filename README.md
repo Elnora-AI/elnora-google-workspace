@@ -151,13 +151,19 @@ outreach. See [SAFETY.md](SAFETY.md).
 
 ## Part of the Elnora family
 
-This plugin is one of a family of universal, config-driven Claude Code tools from [Elnora AI](https://github.com/Elnora-AI). Each tool is fully standalone — install just this one and everything above works. Install siblings and they start chaining automatically, no extra wiring:
+Open-source agent tooling from [Elnora AI](https://github.com/Elnora-AI) — free, universal, config-driven tools that wire Claude Code (or any AI coding agent) into the systems you run your company on. Each works 100% standalone; install several and they chain into end-to-end workflows.
 
-- **[knowledge-vault](https://github.com/Elnora-AI/knowledge-vault)** — a plain-Markdown knowledge base with a CSV-backed CRM and task system. With both installed, Gmail and Calendar become the senses and the vault becomes the memory: `gw gmail sync-crm-install` and `gw calendar sync-crm-install` schedule syncs that bump `last_contact_date`, promote pipeline stages, and link meetings to contacts, while `/draft-email` and `/prep-meeting` pull CRM context into your writing, and actionable emails can be triaged straight into the vault's task system.
-- **[elnora-slack](https://github.com/Elnora-AI/elnora-slack)** — the full Slack Web API as an agent-friendly CLI. The CRM connector here already knows how to read your Slack activity (`GW_SLACK_CLI_BIN`, `GW_SLACK_USER_ID`) so DMs count toward last-contact tracking, and meeting prep can pull Slack threads alongside email history.
-- **[elnora-linear](https://github.com/Elnora-AI/elnora-linear)** — Linear issue tracking from Claude Code. Chain it with Gmail here to turn an email thread into a tracked issue, or reference Linear context when drafting replies about in-flight work.
-
-Every chain degrades to a clean no-op when the sibling isn't installed — the core Google commands never depend on anything else. Browse the whole family at [github.com/Elnora-AI](https://github.com/Elnora-AI).
+<!-- ELNORA-FAMILY:START -->
+- [elnora-linear](https://github.com/Elnora-AI/elnora-linear) — Linear issue management — search, bulk edit, agents, and a config-driven curator
+- [elnora-slack](https://github.com/Elnora-AI/elnora-slack) — the entire Slack Web API as a CLI plus agent skills with a draft-and-approve send gate
+- [elnora-whatsapp](https://github.com/Elnora-AI/elnora-whatsapp) — read, search, and send WhatsApp from your own paired account, 100% local
+- [elnora-merit-aktiva](https://github.com/Elnora-AI/elnora-merit-aktiva) — Merit Aktiva accounting and Merit Palk payroll as a CLI and plugin
+- [elnora-vanta](https://github.com/Elnora-AI/elnora-vanta) — read-only Vanta compliance — frameworks, tests, controls, and vulnerabilities as agent-friendly JSON
+- [elnora-luma](https://github.com/Elnora-AI/elnora-luma) — Luma (lu.ma) events — all 61 public API endpoints as a spec-driven CLI with safety guardrails
+- [elnora-travel](https://github.com/Elnora-AI/elnora-travel) — a real travel agent — live flights, hotels, Airbnb, Booking.com, and routes in one itinerary
+- [elnora-websearch-tools](https://github.com/Elnora-AI/elnora-websearch-tools) — web search — Exa, Tavily, Perplexity, Firecrawl, and Valyu CLIs and skills in one plugin
+- [knowledge-vault](https://github.com/Elnora-AI/knowledge-vault) — an Obsidian-compatible knowledge base for agent teams — search and save your work to any vault
+<!-- ELNORA-FAMILY:END -->
 
 ## Development
 
