@@ -5,7 +5,7 @@
 # is absent or has no usable backend) but is included so encrypted credential
 # storage works out of the box.
 google-api-python-client>=2.100
-google-auth>=2.23
+google-auth>=2.56.0
 google-auth-oauthlib>=1.1
 click>=8.1
 keyring>=24.0
