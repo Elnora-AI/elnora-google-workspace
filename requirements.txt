@@ -4,7 +4,7 @@
 # keyring is optional at runtime (the CLI falls back to 0600 token files when it
 # is absent or has no usable backend) but is included so encrypted credential
 # storage works out of the box.
-google-api-python-client>=2.100
+google-api-python-client>=2.198.0
 google-auth>=2.23
 google-auth-oauthlib>=1.1
 click>=8.1
