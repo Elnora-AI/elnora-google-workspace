@@ -1240,6 +1240,59 @@ def test_labels_success(patch_build_service):
 
 
 # ---------------------------------------------------------------------------
+# modify_labels
+# ---------------------------------------------------------------------------
+
+def _stub_labels(mock_svc):
+    mock_svc.users().labels().list().execute.return_value = {
+        "labels": [
+            {"id": "INBOX", "name": "INBOX", "type": "system"},
+            {"id": "Label_1", "name": "partners/acme", "type": "user"},
+        ]
+    }
+
+
+def test_modify_labels_resolves_name_to_id(patch_build_service):
+    gmail_mod, mock_svc = patch_build_service
+    _stub_labels(mock_svc)
+    result = gmail_mod.modify_labels(target_id="m1", add=["partners/acme"])
+    assert result["added"] == ["Label_1"]
+    assert result["modified"] is True
+    assert result["thread"] is False
+
+
+def test_modify_labels_accepts_raw_id(patch_build_service):
+    gmail_mod, mock_svc = patch_build_service
+    _stub_labels(mock_svc)
+    result = gmail_mod.modify_labels(target_id="m1", add=["Label_1"], remove=["INBOX"])
+    assert result["added"] == ["Label_1"]
+    assert result["removed"] == ["INBOX"]
+
+
+def test_modify_labels_thread_uses_threads_resource(patch_build_service):
+    gmail_mod, mock_svc = patch_build_service
+    _stub_labels(mock_svc)
+    result = gmail_mod.modify_labels(target_id="t1", add=["Label_1"], thread=True)
+    assert result["thread"] is True
+    mock_svc.users().threads().modify.assert_called_with(
+        userId="me", id="t1", body={"addLabelIds": ["Label_1"]}
+    )
+
+
+def test_modify_labels_unknown_label(patch_build_service):
+    gmail_mod, mock_svc = patch_build_service
+    _stub_labels(mock_svc)
+    with pytest.raises(NotFoundError):
+        gmail_mod.modify_labels(target_id="m1", add=["no/such/label"])
+
+
+def test_modify_labels_requires_add_or_remove():
+    import gmail
+    with pytest.raises(ValidationError, match="Nothing to do"):
+        gmail.modify_labels(target_id="m1")
+
+
+# ---------------------------------------------------------------------------
 # scan — input validation
 # ---------------------------------------------------------------------------
 

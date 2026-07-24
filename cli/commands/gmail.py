@@ -316,6 +316,26 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
             result = gmail_lib.labels(account=account)
             output_success(result, compact=compact)
 
+    @gmail.command("modify-labels")
+    @click.argument("target_id")
+    @click.option("--add", default=None, help="Label name(s) or ID(s) to add, comma-separated")
+    @click.option("--remove", default=None, help="Label name(s) or ID(s) to remove, comma-separated")
+    @click.option("--thread", is_flag=True, help="Apply to every message in the thread")
+    @account_option
+    @compact_option
+    def modify_labels(target_id, add, remove, thread, account, compact):
+        """Add or remove labels on a message (or a whole thread)."""
+        import gmail as gmail_lib
+        with _handle_errors(compact):
+            result = gmail_lib.modify_labels(
+                target_id=target_id,
+                add=[s.strip() for s in add.split(",") if s.strip()] if add else None,
+                remove=[s.strip() for s in remove.split(",") if s.strip()] if remove else None,
+                thread=thread,
+                account=account,
+            )
+            output_success(result, compact=compact)
+
     @gmail.command()
     @click.argument("message_id")
     @account_option

@@ -1071,6 +1071,64 @@ def labels(account: str | None = None) -> dict:
     return {"labels": label_list, "count": len(label_list)}
 
 
+def _resolve_label_ids(service, values: list[str]) -> list[str]:
+    """Map label names to label IDs; values that are already IDs pass through."""
+    result = service.users().labels().list(userId="me").execute()
+    known = result.get("labels", [])
+    ids = {lbl["id"] for lbl in known}
+    by_name = {lbl["name"]: lbl["id"] for lbl in known}
+    resolved = []
+    for value in values:
+        if value in ids:
+            resolved.append(value)
+        elif value in by_name:
+            resolved.append(by_name[value])
+        else:
+            raise NotFoundError("Label", value)
+    return resolved
+
+
+def modify_labels(
+    target_id: str,
+    add: list[str] | None = None,
+    remove: list[str] | None = None,
+    thread: bool = False,
+    account: str | None = None,
+) -> dict:
+    """Add and/or remove labels on a message, or on every message in a thread.
+
+    Labels may be given as names ("partners/acme") or IDs ("Label_123").
+    """
+    if not add and not remove:
+        raise ValidationError(
+            "Nothing to do: pass --add and/or --remove.",
+            suggestion="Example: gw gmail modify-labels MSG_ID --add partners/acme",
+        )
+    service = _get_service(account)
+    body = {}
+    if add:
+        body["addLabelIds"] = _resolve_label_ids(service, add)
+    if remove:
+        body["removeLabelIds"] = _resolve_label_ids(service, remove)
+
+    resource = service.users().threads() if thread else service.users().messages()
+    try:
+        resource.modify(userId="me", id=target_id, body=body).execute()
+    except HttpError as e:
+        resp = getattr(e, "resp", None)
+        if resp is not None and resp.status == 404:
+            raise NotFoundError("Thread" if thread else "Message", target_id)
+        handle_http_error(e, "gmail modify_labels")
+        raise  # unreachable
+    return {
+        "id": target_id,
+        "modified": True,
+        "thread": thread,
+        "added": body.get("addLabelIds", []),
+        "removed": body.get("removeLabelIds", []),
+    }
+
+
 def download_attachments(
     message_id: str,
     dest: str,

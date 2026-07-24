@@ -66,6 +66,7 @@ SERVICE_SCOPES: dict[str, list[str]] = {
         "https://www.googleapis.com/auth/gmail.compose",
         "https://www.googleapis.com/auth/gmail.readonly",
         "https://www.googleapis.com/auth/gmail.labels",
+        "https://www.googleapis.com/auth/gmail.modify",
     ],
     "calendar": ["https://www.googleapis.com/auth/calendar"],
     "sheets": [
@@ -117,14 +118,15 @@ def scopes_for(services: list[str] | None = None, *, readonly: bool = False) -> 
 SCOPES = scopes_for()
 
 # Scopes added after the original token set (forms.responses.readonly and full
-# drive, both 2026-07) are not required of legacy tokens, so existing tokens
-# keep working; a missing drive scope surfaces as a typed 403 with a re-auth
-# suggestion (gw auth login --scopes drive).
+# drive, both 2026-07; gmail.modify 2026-07) are not required of legacy tokens,
+# so existing tokens keep working; a missing drive scope surfaces as a typed 403
+# with a re-auth suggestion (gw auth login --scopes drive).
 _LEGACY_REQUIRED_SCOPES = [
     s for s in SCOPES
     if s not in (
         "https://www.googleapis.com/auth/forms.responses.readonly",
         "https://www.googleapis.com/auth/drive",
+        "https://www.googleapis.com/auth/gmail.modify",
     )
 ]
 
