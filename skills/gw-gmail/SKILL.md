@@ -176,6 +176,20 @@ $CLI gmail trash MESSAGE_ID
 $CLI gmail download-attachments MESSAGE_ID --dest /path/to/dir
 ```
 
+### Labels
+
+`labels` lists them; `modify-labels` applies them. Labels are given by name or by ID — names are resolved for you, so prefer the name.
+
+```bash
+$CLI gmail modify-labels MESSAGE_ID --add "partners/acme"
+$CLI gmail modify-labels THREAD_ID  --add "partners/acme" --thread      # whole thread
+$CLI gmail modify-labels MESSAGE_ID --add "customers" --remove "INBOX"  # label + archive
+```
+
+`--add`/`--remove` accept comma-separated lists. Response: `{"id","modified":true,"thread":bool,"added":[...],"removed":[...]}`
+
+Needs the `gmail.modify` scope. A 403 "insufficient authentication scopes" means the token predates it — re-authenticate with `$CLI auth login --scopes gmail`.
+
 ## UI Verification
 
 After `draft`, `draft-reply`, `draft-reply-all`, `update-draft`, or `attach-to-draft`, verify the draft looks correct in Gmail using Chrome DevTools MCP:

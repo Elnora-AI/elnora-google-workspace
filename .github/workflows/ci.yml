@@ -34,7 +34,10 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install ruff
-        run: python -m pip install --upgrade pip ruff
+        # Pinned: unpinned installs pick up default-rule-set changes on a new
+        # ruff release and turn lint red on untouched code (0.16.0 did exactly
+        # that). Bump deliberately, with the resulting fixes in the same PR.
+        run: python -m pip install --upgrade pip "ruff==0.15.4"
       - name: Lint (ruff)
         run: ruff check lib cli tests
 
