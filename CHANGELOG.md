@@ -24,6 +24,13 @@ All notable changes to this project are documented here. The format is based on
   unaffected. An empty (freshly-scaffolded) CRM now syncs as a clean no-op instead of
   reporting an error.
 
+## [1.1.0](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.0.0...v1.1.0) (2026-07-24)
+
+
+### Features
+
+* **gmail:** add modify-labels command and gmail.modify scope ([#21](https://github.com/Elnora-AI/elnora-google-workspace/issues/21)) ([8209f7c](https://github.com/Elnora-AI/elnora-google-workspace/commit/8209f7c99627864c5d1fa37e23c8b91286dde4d2))
+
 ## 1.0.0 — 2026-07-13
 
 Initial public release of the Google Workspace plugin (Gmail, Calendar, Drive, Docs, Sheets, Forms, Tasks, plus `gw api`/`gw schema` and multi-account OAuth).
