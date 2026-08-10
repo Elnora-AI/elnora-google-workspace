@@ -120,6 +120,61 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
             output_success(result, compact=compact)
 
     # ------------------------------------------------------------------
+    # booking pages (appointment schedules)
+    #
+    # Calendar API v3 has no appointment-schedule resource, so these drive the
+    # Calendar UI in the user's running Chrome. See lib/calendar_booking.py.
+    # ------------------------------------------------------------------
+
+    @calendar.group()
+    def booking():
+        """Booking pages (appointment schedules) — needs Chrome running."""
+        pass
+
+    user_index_option = click.option(
+        "--user-index", default=0, type=int,
+        help="Chrome's signed-in account slot, the N in calendar.google.com/calendar/u/N (default: 0)",
+    )
+
+    @booking.command(name="list")
+    @user_index_option
+    @compact_option
+    def booking_list(user_index, compact):
+        """List the booking pages in the Calendar sidebar."""
+        import calendar_booking
+        with _handle_errors(compact):
+            result = calendar_booking.list_pages(user_index=user_index)
+            output_success(result, compact=compact)
+
+    @booking.command(name="get")
+    @click.option("--name", required=True, help="Booking page name, exactly as it appears in the sidebar")
+    @user_index_option
+    @compact_option
+    def booking_get(name, user_index, compact):
+        """Show a booking page's duration, weekly hours and timezone."""
+        import calendar_booking
+        with _handle_errors(compact):
+            result = calendar_booking.get(name, user_index=user_index)
+            output_success(result, compact=compact)
+
+    @booking.command(name="update")
+    @click.option("--name", required=True, help="Booking page name, exactly as it appears in the sidebar")
+    @click.option("--duration", default=None, type=int, help="Appointment length in minutes (15, 30, 45, 60, 90 or 120)")
+    @click.option("--hours", default=None, help="Weekly hours, e.g. 'mon=9:00am-5:00pm,tue=9-12+14-17,wed=unavailable'. Days left out are unchanged.")
+    @click.option("--dry-run", is_flag=True, help="Show the current and intended settings without saving")
+    @user_index_option
+    @compact_option
+    def booking_update(name, duration, hours, dry_run, user_index, compact):
+        """Change a booking page's appointment duration and/or weekly hours."""
+        import calendar_booking
+        with _handle_errors(compact):
+            result = calendar_booking.update(
+                name, duration=duration, hours=hours,
+                user_index=user_index, dry_run=dry_run,
+            )
+            output_success(result, compact=compact)
+
+    # ------------------------------------------------------------------
     # sync-crm command
     # ------------------------------------------------------------------
 

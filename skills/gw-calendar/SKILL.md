@@ -2,10 +2,12 @@
 name: gw-calendar
 description: >
   Create, update, and list Google Calendar events via CLI. Handles Google Meet links,
-  attendees, timezones, reminders, and locations.
+  attendees, timezones, reminders, and locations. Also reads and edits booking pages
+  (appointment schedules) by driving Chrome, since Google ships no API for them.
   TRIGGERS: "calendar", "meeting", "schedule", "event", "google meet", "book a call",
   "availability", "schedule meeting", "create event", "update event", "reschedule",
-  "change event", "modify event", "reminder"
+  "change event", "modify event", "reminder", "booking page", "booking pages",
+  "appointment schedule", "bookable hours", "booking link"
 ---
 
 # Calendar
@@ -102,6 +104,55 @@ $CLI calendar update --event-id "abc123" --free
 # List next 3 days
 $CLI calendar list --days 3 --compact
 ```
+
+## Booking Pages (Appointment Schedules)
+
+Google exposes no API for these — Calendar API v3 has no appointment-schedule
+resource, and booking pages are neither events nor calendars, so OAuth cannot
+see them at all. These commands drive the Calendar UI in the user's own running
+Chrome instead, so no Google session credentials are ever stored.
+
+**Requires** Chrome running with the `chrome://inspect/#remote-debugging` toggle
+enabled (a one-time setting, the same connection the chrome-devtools MCP uses).
+The commands reuse an open Calendar tab, navigating it as they work.
+
+```bash
+$CLI calendar booking list [--user-index 0]
+$CLI calendar booking get --name "Elnora Intro (US)"
+$CLI calendar booking update --name "Elnora Intro (US)" [--duration 30] [--hours "mon=9:00am-5:00pm,fri=unavailable"] [--dry-run]
+```
+
+`--name` must match the sidebar entry exactly; run `booking list` to get it.
+`--user-index` is the `N` in `calendar.google.com/calendar/u/N` — Chrome's
+signed-in account slot, which is not the same thing as `--account`.
+
+**`--hours` format** — comma-separated `day=value`. A value is either
+`unavailable` or one or more `start-end` ranges joined by `+`. Times accept
+24-hour (`17:00`) or 12-hour (`5pm`, `5:00 PM`) form. **Days you leave out keep
+their current hours**, so you can change one day without restating the week.
+
+```bash
+# One day, leaving every other day alone
+$CLI calendar booking update --name "Elnora Intro (US)" --hours "mon=6:00pm-10:00pm"
+
+# Split day (morning and afternoon), and clear a day
+$CLI calendar booking update --name "Elnora Intro (UK & EU)" --hours "wed=9-12+14-17,fri=unavailable"
+
+# Preview without saving — always do this first on a page you have not edited before
+$CLI calendar booking update --name "Elnora Intro (US)" --duration 45 --dry-run
+```
+
+`--duration` accepts only what the UI offers: 15, 30, 45, 60, 90 or 120 minutes.
+
+`get` returns `{"name","duration","recurrence","timezone","availability":[{"day","periods":[{"start","end"}]}]}`,
+with `periods: []` meaning unavailable. `update` returns the same shape plus
+`"saved": true`, read back from a fresh reopen of the page — it does not report
+the form it just filled in. If the saved state does not match the request the
+command fails rather than reporting success.
+
+Because this is UI automation, it can break if Google restructures the
+appointment-schedule editor. A `GW_CHROME_ERROR` naming a missing button or a
+timeout means exactly that; check the page in Chrome.
 
 ## UI Verification
 

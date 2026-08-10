@@ -9,3 +9,6 @@ google-auth>=2.56.2
 google-auth-oauthlib>=1.4.0
 click>=8.4.2
 keyring>=24.0
+# Drives Chrome over the DevTools protocol for `gw calendar booking`; Google
+# exposes no API for appointment schedules.
+websockets>=13.0

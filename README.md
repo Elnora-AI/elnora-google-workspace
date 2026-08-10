@@ -51,7 +51,9 @@ following the same rules (auth, JSON output, destructive-op confirmation).
 - **Gmail** — send, draft, list, read, reply / reply-all, scan for replies, manage
   drafts and attachments, labels, threads, trash.
 - **Calendar** — create/update/get/delete events, list upcoming, list calendars,
-  Google Meet links, attendees, timezones, reminders.
+  Google Meet links, attendees, timezones, reminders. Also edits booking pages
+  (appointment schedules) by driving your own Chrome, since Google ships no API
+  for them — needs `chrome://inspect/#remote-debugging` enabled.
 - **Drive** — list, get, upload, download, export, move, copy, trash, share.
 - **Docs** — create, read, import Markdown as a native Doc, append, replace.
 - **Sheets** — read, write, append, list.
