@@ -496,12 +496,32 @@ async () => {
   const timezone = document.querySelector('input[aria-label="Timezone"]');
   const recurrence = document.querySelector('div[role="combobox"][aria-label="Recurrence"]');
 
+  // The lower half of the editor is collapsed sections whose summary line
+  // already states the setting, so they can be read without expanding them.
+  // 'Co-hosts' in particular decides whether a second person is added to every
+  // booking, which is not visible anywhere else.
+  const SECTIONS = [
+    'Scheduling window', 'Booked appointment settings', 'Calendars', 'Co-hosts',
+  ];
+  const sections = {};
+  for (const button of visible(document.querySelectorAll('button'))) {
+    const text = (button.textContent || '').trim();
+    const label = SECTIONS.find(s => text.startsWith(s));
+    if (label && !(label in sections)) {
+      // Trailing material-icon ligature text ('keyboard_arrow_down') is part of
+      // the button's textContent but is decoration, not a value.
+      sections[label] = text.slice(label.length)
+        .replace(/keyboard_arrow_(down|up)$/, '').trim() || null;
+    }
+  }
+
   return {
     name: title ? title.value : null,
     duration: duration ? duration.textContent.trim() : null,
     recurrence: recurrence ? recurrence.textContent.trim() : null,
     timezone: timezone ? timezone.value : null,
     availability: readDays().map(d => ({ day: d.day, periods: d.periods })),
+    settings: sections,
   };
 }
 """
@@ -823,6 +843,7 @@ def update(
         "duration": after["duration"],
         "timezone": after["timezone"],
         "availability": after["availability"],
+        "settings": after["settings"],
         "saved": True,
     }
     if timezone is not None:

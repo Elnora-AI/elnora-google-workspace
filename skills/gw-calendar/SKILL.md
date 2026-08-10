@@ -118,8 +118,8 @@ The commands reuse an open Calendar tab, navigating it as they work.
 
 ```bash
 $CLI calendar booking list [--user-index 0]
-$CLI calendar booking get --name "Elnora Intro"
-$CLI calendar booking update --name "Elnora Intro" [--duration 30] [--hours "mon=9:00am-5:00pm,fri=unavailable"] [--timezone "Salt Lake City"] [--rename "New name"] [--dry-run]
+$CLI calendar booking get --name "Intro call"
+$CLI calendar booking update --name "Intro call" [--duration 30] [--hours "mon=9:00am-5:00pm,fri=unavailable"] [--timezone "Salt Lake City"] [--rename "New name"] [--dry-run]
 $CLI calendar booking delete --name "Old page" --confirm
 ```
 
@@ -139,16 +139,16 @@ their current hours**, so you can change one day without restating the week.
 
 ```bash
 # One day, leaving every other day alone
-$CLI calendar booking update --name "Elnora Intro" --hours "mon=6:00pm-10:00pm"
+$CLI calendar booking update --name "Intro call" --hours "mon=6:00pm-10:00pm"
 
 # Split day (morning and afternoon), and clear a day
-$CLI calendar booking update --name "30 min with Carmen Kivisild" --hours "wed=9-12+14-17,fri=unavailable"
+$CLI calendar booking update --name "30 min with Jane Doe" --hours "wed=9-12+14-17,fri=unavailable"
 
 # Move a page to a new city's timezone and rename it in the same pass
-$CLI calendar booking update --name "Elnora Intro (US)" --rename "Elnora Intro" --timezone "Salt Lake City"
+$CLI calendar booking update --name "Intro call (US)" --rename "Intro call" --timezone "Salt Lake City"
 
 # Preview without saving — always do this first on a page you have not edited before
-$CLI calendar booking update --name "Elnora Intro" --duration 45 --dry-run
+$CLI calendar booking update --name "Intro call" --duration 45 --dry-run
 ```
 
 `--duration` accepts only what the UI offers: 15, 30, 45, 60, 90 or 120 minutes.
