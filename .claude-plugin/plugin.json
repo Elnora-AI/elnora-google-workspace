@@ -1,6 +1,6 @@
 {
   "name": "google-workspace",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Google Workspace for Claude Code — Gmail, Calendar, Drive, Docs, Sheets, Forms, and Tasks CLIs and skills, plus a `gw api`/`gw schema` escape hatch to any Google API. Multi-account OAuth with keyring-backed tokens.",
   "author": {
     "name": "Elnora AI",

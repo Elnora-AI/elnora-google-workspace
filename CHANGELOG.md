@@ -24,6 +24,14 @@ All notable changes to this project are documented here. The format is based on
   unaffected. An empty (freshly-scaffolded) CRM now syncs as a clean no-op instead of
   reporting an error.
 
+## [1.2.0](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.1.0...v1.2.0) (2026-08-10)
+
+
+### Features
+
+* **calendar:** booking page timezone, rename and delete ([#28](https://github.com/Elnora-AI/elnora-google-workspace/issues/28)) ([ddf1674](https://github.com/Elnora-AI/elnora-google-workspace/commit/ddf167454250dccab1383dd424eb7c4df107e2b4))
+* **calendar:** read and edit booking pages by driving Chrome ([#26](https://github.com/Elnora-AI/elnora-google-workspace/issues/26)) ([97d91bb](https://github.com/Elnora-AI/elnora-google-workspace/commit/97d91bbb9776796598b9b68bdc46b6427b00a3db))
+
 ## [1.1.0](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.0.0...v1.1.0) (2026-07-24)
 
 
