@@ -161,17 +161,32 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @click.option("--name", required=True, help="Booking page name, exactly as it appears in the sidebar")
     @click.option("--duration", default=None, type=int, help="Appointment length in minutes (15, 30, 45, 60, 90 or 120)")
     @click.option("--hours", default=None, help="Weekly hours, e.g. 'mon=9:00am-5:00pm,tue=9-12+14-17,wed=unavailable'. Days left out are unchanged.")
+    @click.option("--timezone", default=None, help="City to resolve the timezone from, e.g. 'Salt Lake City'. The field searches cities, not zone names.")
+    @click.option("--rename", default=None, help="New name for the booking page")
     @click.option("--dry-run", is_flag=True, help="Show the current and intended settings without saving")
     @user_index_option
     @compact_option
-    def booking_update(name, duration, hours, dry_run, user_index, compact):
-        """Change a booking page's appointment duration and/or weekly hours."""
+    def booking_update(name, duration, hours, timezone, rename, dry_run, user_index, compact):
+        """Change a booking page's name, duration, weekly hours and/or timezone."""
         import calendar_booking
         with _handle_errors(compact):
             result = calendar_booking.update(
                 name, duration=duration, hours=hours,
+                timezone=timezone, rename=rename,
                 user_index=user_index, dry_run=dry_run,
             )
+            output_success(result, compact=compact)
+
+    @booking.command(name="delete")
+    @click.option("--name", required=True, help="Booking page name, exactly as it appears in the sidebar")
+    @click.option("--confirm", is_flag=True, required=True, help="Required. Deletion breaks the page's public booking link immediately.")
+    @user_index_option
+    @compact_option
+    def booking_delete(name, confirm, user_index, compact):
+        """Delete a booking page. Appointments already booked through it survive."""
+        import calendar_booking
+        with _handle_errors(compact):
+            result = calendar_booking.delete(name, user_index=user_index)
             output_success(result, compact=compact)
 
     # ------------------------------------------------------------------

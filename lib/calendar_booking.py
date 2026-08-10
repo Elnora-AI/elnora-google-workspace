@@ -20,6 +20,7 @@ import json
 import os
 import platform
 import re
+import time
 from pathlib import Path
 
 from output import CliError, ValidationError
@@ -42,6 +43,10 @@ UNAVAILABLE = "unavailable"
 # Durations the UI offers directly. Anything else needs the Custom... flow,
 # which we do not drive.
 ALLOWED_DURATIONS = [15, 30, 45, 60, 90, 120]
+
+# Chrome refuses a new browser-endpoint connection for a moment after one closes.
+CONNECT_ATTEMPTS = 5
+CONNECT_BACKOFF_SECONDS = 2.0
 
 
 class ChromeError(CliError):
@@ -236,13 +241,28 @@ class ChromeSession:
             ) from exc
 
         url = _devtools_url()
-        try:
-            self._ws = connect(url, open_timeout=10, max_size=64 * 1024 * 1024)
-        except Exception as exc:
+        # Chrome briefly refuses new browser-endpoint connections (403, or a
+        # handshake that never completes) right after one closes, so back-to-back
+        # commands would otherwise fail on the second. Retry before giving up.
+        last: Exception | None = None
+        for attempt in range(CONNECT_ATTEMPTS):
+            try:
+                self._ws = connect(url, open_timeout=10, max_size=64 * 1024 * 1024)
+                break
+            except Exception as exc:
+                last = exc
+                if attempt < CONNECT_ATTEMPTS - 1:
+                    time.sleep(CONNECT_BACKOFF_SECONDS * (attempt + 1))
+        else:
             raise ChromeError(
-                f"Could not connect to Chrome at {url}: {exc}",
-                suggestion="Is Chrome running with chrome://inspect/#remote-debugging enabled?",
-            ) from exc
+                f"Could not connect to Chrome at {url} after "
+                f"{CONNECT_ATTEMPTS} attempts: {last}",
+                suggestion=(
+                    "Is Chrome running with chrome://inspect/#remote-debugging "
+                    "enabled? Only one client may hold the browser endpoint, so "
+                    "close other tools driving Chrome and retry."
+                ),
+            )
 
         self._attach()
         return self
@@ -476,12 +496,32 @@ async () => {
   const timezone = document.querySelector('input[aria-label="Timezone"]');
   const recurrence = document.querySelector('div[role="combobox"][aria-label="Recurrence"]');
 
+  // The lower half of the editor is collapsed sections whose summary line
+  // already states the setting, so they can be read without expanding them.
+  // 'Co-hosts' in particular decides whether a second person is added to every
+  // booking, which is not visible anywhere else.
+  const SECTIONS = [
+    'Scheduling window', 'Booked appointment settings', 'Calendars', 'Co-hosts',
+  ];
+  const sections = {};
+  for (const button of visible(document.querySelectorAll('button'))) {
+    const text = (button.textContent || '').trim();
+    const label = SECTIONS.find(s => text.startsWith(s));
+    if (label && !(label in sections)) {
+      // Trailing material-icon ligature text ('keyboard_arrow_down') is part of
+      // the button's textContent but is decoration, not a value.
+      sections[label] = text.slice(label.length)
+        .replace(/keyboard_arrow_(down|up)$/, '').trim() || null;
+    }
+  }
+
   return {
     name: title ? title.value : null,
     duration: duration ? duration.textContent.trim() : null,
     recurrence: recurrence ? recurrence.textContent.trim() : null,
     timezone: timezone ? timezone.value : null,
     availability: readDays().map(d => ({ day: d.day, periods: d.periods })),
+    settings: sections,
   };
 }
 """
@@ -579,6 +619,88 @@ async () => {
 """
 
 
+JS_SET_TITLE = """
+async () => {
+  const wanted = %s;
+  const input = document.querySelector('input[aria-label="Add title"]');
+  if (!input) return { error: 'no-title-control' };
+
+  const setter = Object.getOwnPropertyDescriptor(
+    window.HTMLInputElement.prototype, 'value').set;
+  input.focus();
+  setter.call(input, wanted);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  await sleep(400);
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  await sleep(400);
+  return { ok: true, name: input.value };
+}
+"""
+
+
+# The timezone field searches cities rather than listing zones, so 'Salt Lake
+# City' resolves to 'Mountain Time - Denver'. Match on the option text, which
+# names the city; the field itself ends up showing only the zone.
+JS_SET_TIMEZONE = """
+async () => {
+  const query = %s;
+  const input = document.querySelector('input[aria-label="Timezone"]');
+  if (!input) return { error: 'no-timezone-control' };
+
+  const setter = Object.getOwnPropertyDescriptor(
+    window.HTMLInputElement.prototype, 'value').set;
+  input.focus();
+  setter.call(input, query);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  await sleep(1500);
+
+  const options = visible(document.querySelectorAll('[role="option"]'));
+  if (!options.length) return { error: 'no-timezone-match' };
+
+  const needle = query.toLowerCase();
+  const hit = options.find(o => o.textContent.toLowerCase().includes(needle));
+  if (!hit) {
+    return { error: 'no-timezone-match',
+             sawInstead: options.slice(0, 3).map(o => o.textContent.trim()) };
+  }
+  const matched = hit.textContent.trim();
+  hit.click();
+  await sleep(1000);
+  return { ok: true, matched, timezone: input.value };
+}
+"""
+
+
+JS_DELETE = """
+async () => {
+  const name = %s;
+  const selector = 'button[aria-label="Options for ' + name.replace(/"/g, '\\\\"') + '"]';
+
+  const button = await waitFor(() => document.querySelector(selector));
+  if (!button) return { error: 'not-found' };
+  button.click();
+  await sleep(900);
+
+  const item = visible(document.querySelectorAll('[role="menuitem"]'))
+    .find(i => i.textContent.trim() === 'Delete');
+  if (!item) return { error: 'no-delete-item' };
+  item.click();
+
+  const dialog = await waitFor(
+    () => document.querySelector('[role="alertdialog"], [role="dialog"]'));
+  if (!dialog) return { error: 'no-confirm-dialog' };
+
+  const confirm = [...dialog.querySelectorAll('button')]
+    .find(b => b.textContent.trim() === 'Delete');
+  if (!confirm) return { error: 'no-confirm-button' };
+  confirm.click();
+
+  const gone = await waitFor(() => !document.querySelector(selector));
+  return gone ? { ok: true } : { error: 'still-listed' };
+}
+"""
+
+
 def _js_literal(value) -> str:
     """Embed a Python value in a script as a JSON literal."""
     return json.dumps(value)
@@ -635,20 +757,24 @@ def update(
     name: str,
     duration: int | None = None,
     hours: str | None = None,
+    timezone: str | None = None,
+    rename: str | None = None,
     user_index: int = 0,
     dry_run: bool = False,
 ) -> dict:
-    """Change a booking page's appointment duration and/or weekly hours."""
-    if duration is None and hours is None:
+    """Change a booking page's name, duration, weekly hours and/or timezone."""
+    if duration is None and hours is None and timezone is None and rename is None:
         raise ValidationError(
             "Nothing to update.",
-            suggestion="Pass --duration and/or --hours.",
+            suggestion="Pass --duration, --hours, --timezone and/or --rename.",
         )
     if duration is not None and duration not in ALLOWED_DURATIONS:
         raise ValidationError(
             f"Unsupported --duration: {duration}",
             suggestion=f"Choose one of: {', '.join(str(d) for d in ALLOWED_DURATIONS)}",
         )
+    if rename is not None and not rename.strip():
+        raise ValidationError("--rename cannot be blank.")
 
     wanted = parse_hours(hours) if hours else {}
 
@@ -666,10 +792,13 @@ def update(
                 "booking_page": before["name"],
                 "current": {
                     "duration": before["duration"],
+                    "timezone": before["timezone"],
                     "availability": before["availability"],
                 },
                 "would_set": {
+                    "name": rename,
                     "duration": f"{duration} minutes" if duration else None,
+                    "timezone": timezone,
                     "availability": [
                         {"day": day, "periods": [{"start": s, "end": e} for s, e in periods]}
                         for day, periods in wanted.items()
@@ -677,8 +806,17 @@ def update(
                 },
             }
 
+        if rename is not None:
+            _check(chrome.evaluate(JS_SET_TITLE % _js_literal(rename)), "set the name")
+
         if duration is not None:
             _check(chrome.evaluate(JS_SET_DURATION % duration), "set the duration")
+
+        if timezone is not None:
+            matched = _check(
+                chrome.evaluate(JS_SET_TIMEZONE % _js_literal(timezone)),
+                f"set the timezone to '{timezone}'",
+            )
 
         for day, periods in wanted.items():
             _check(
@@ -690,26 +828,55 @@ def update(
 
         _check(chrome.evaluate(JS_SAVE), f"save '{name}'")
 
-        # Read the saved state back rather than trusting the form.
+        # Read the saved state back rather than trusting the form. A rename
+        # means reopening under the new name.
+        final_name = rename if rename is not None else name
         _check(
-            chrome.evaluate(JS_OPEN_EDITOR % _js_literal(name)),
-            f"reopen '{name}' to verify",
+            chrome.evaluate(JS_OPEN_EDITOR % _js_literal(final_name)),
+            f"reopen '{final_name}' to verify",
         )
         after = _check(chrome.evaluate(JS_READ_SCHEDULE), f"verify '{name}'")
 
-    _verify(after, duration, wanted)
-    return {
+    _verify(after, duration, wanted, rename)
+    result = {
         "booking_page": after["name"],
         "duration": after["duration"],
         "timezone": after["timezone"],
         "availability": after["availability"],
+        "settings": after["settings"],
         "saved": True,
     }
+    if timezone is not None:
+        result["timezone_matched"] = matched.get("matched")
+    return result
 
 
-def _verify(after: dict, duration: int | None, wanted: dict[str, list[tuple[str, str]]]) -> None:
+def delete(name: str, user_index: int = 0) -> dict:
+    """Delete a booking page. Appointments already booked through it survive."""
+    with ChromeSession(user_index) as chrome:
+        chrome.navigate(_calendar_url(user_index))
+        _check(chrome.evaluate(JS_DELETE % _js_literal(name)), f"delete '{name}'")
+
+        remaining = _check(
+            chrome.evaluate(JS_LIST_PAGES), "re-read the booking page list"
+        )["names"]
+
+    if name in remaining:
+        raise ChromeError(f"'{name}' is still listed after the delete.")
+    return {"deleted": name, "remaining": remaining}
+
+
+def _verify(
+    after: dict,
+    duration: int | None,
+    wanted: dict[str, list[tuple[str, str]]],
+    rename: str | None = None,
+) -> None:
     """Fail loudly if the saved page does not match what was asked for."""
     problems = []
+
+    if rename is not None and after["name"] != rename:
+        problems.append(f"name is '{after['name']}', expected '{rename}'")
 
     if duration is not None and not after["duration"].startswith(str(duration)):
         # '1 hour' and '1.5 hours' do not start with their minute count.
