@@ -118,9 +118,15 @@ The commands reuse an open Calendar tab, navigating it as they work.
 
 ```bash
 $CLI calendar booking list [--user-index 0]
-$CLI calendar booking get --name "Elnora Intro (US)"
-$CLI calendar booking update --name "Elnora Intro (US)" [--duration 30] [--hours "mon=9:00am-5:00pm,fri=unavailable"] [--dry-run]
+$CLI calendar booking get --name "Elnora Intro"
+$CLI calendar booking update --name "Elnora Intro" [--duration 30] [--hours "mon=9:00am-5:00pm,fri=unavailable"] [--timezone "Salt Lake City"] [--rename "New name"] [--dry-run]
+$CLI calendar booking delete --name "Old page" --confirm
 ```
+
+Only one client may hold Chrome's browser endpoint, so these commands cannot run
+while another tool (the chrome-devtools MCP, say) is driving the same browser.
+Connections are retried with backoff, which also covers Chrome briefly refusing
+a reconnect right after a previous command finished.
 
 `--name` must match the sidebar entry exactly; run `booking list` to get it.
 `--user-index` is the `N` in `calendar.google.com/calendar/u/N` — Chrome's
@@ -133,16 +139,28 @@ their current hours**, so you can change one day without restating the week.
 
 ```bash
 # One day, leaving every other day alone
-$CLI calendar booking update --name "Elnora Intro (US)" --hours "mon=6:00pm-10:00pm"
+$CLI calendar booking update --name "Elnora Intro" --hours "mon=6:00pm-10:00pm"
 
 # Split day (morning and afternoon), and clear a day
-$CLI calendar booking update --name "Elnora Intro (UK & EU)" --hours "wed=9-12+14-17,fri=unavailable"
+$CLI calendar booking update --name "30 min with Carmen Kivisild" --hours "wed=9-12+14-17,fri=unavailable"
+
+# Move a page to a new city's timezone and rename it in the same pass
+$CLI calendar booking update --name "Elnora Intro (US)" --rename "Elnora Intro" --timezone "Salt Lake City"
 
 # Preview without saving — always do this first on a page you have not edited before
-$CLI calendar booking update --name "Elnora Intro (US)" --duration 45 --dry-run
+$CLI calendar booking update --name "Elnora Intro" --duration 45 --dry-run
 ```
 
 `--duration` accepts only what the UI offers: 15, 30, 45, 60, 90 or 120 minutes.
+
+**`--timezone` searches cities, not zone names** — that is how the Calendar field
+itself works. Pass `"Salt Lake City"`, not `"America/Denver"` or `"MST"`; it
+resolves to `(GMT-06:00) Mountain Time - Denver`. The command fails rather than
+guessing if no option matches the text, and reports the city it matched.
+
+**`--confirm` is required on `delete`.** Deleting takes the page's public booking
+link down immediately, so anyone holding that link loses it. Appointments already
+booked through the page are *not* cancelled — Google keeps them on the calendar.
 
 `get` returns `{"name","duration","recurrence","timezone","availability":[{"day","periods":[{"start","end"}]}]}`,
 with `periods: []` meaning unavailable. `update` returns the same shape plus

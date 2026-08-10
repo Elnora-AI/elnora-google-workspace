@@ -167,3 +167,26 @@ def test_update_rejects_duration_the_ui_cannot_set():
 def test_update_rejects_bad_hours_before_opening_chrome():
     with pytest.raises(ValidationError):
         calendar_booking.update("Some page", hours="notaday=9-17")
+
+
+@pytest.mark.parametrize("blank", ["", "   "])
+def test_update_rejects_blank_rename(blank):
+    with pytest.raises(ValidationError, match="blank"):
+        calendar_booking.update("Some page", rename=blank)
+
+
+# ---------------------------------------------------------------------------
+# rename verification
+# ---------------------------------------------------------------------------
+
+def test_verify_passes_when_rename_took_effect():
+    calendar_booking._verify(_saved() | {"name": "New name"}, None, {}, rename="New name")
+
+
+def test_verify_rejects_rename_that_did_not_stick():
+    with pytest.raises(ChromeError, match="name is"):
+        calendar_booking._verify(_saved() | {"name": "Old name"}, None, {}, rename="New name")
+
+
+def test_verify_ignores_name_when_not_renaming():
+    calendar_booking._verify(_saved() | {"name": "Anything"}, None, {})
