@@ -11,4 +11,4 @@ click>=8.5.0
 keyring>=24.0
 # Drives Chrome over the DevTools protocol for `gw calendar booking`; Google
 # exposes no API for appointment schedules.
-websockets>=17.0.1
+websockets>=17.1
