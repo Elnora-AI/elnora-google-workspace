@@ -2,7 +2,7 @@
   "name": "elnora-google-workspace",
   "version": "1.3.0",
   "private": true,
-  "description": "Google Workspace for Claude Code — tooling and CI for the google-workspace plugin marketplace.",
+  "description": "Google Workspace for Claude Code \u2014 tooling and CI for the google-workspace plugin marketplace.",
   "license": "Apache-2.0",
   "author": "Elnora AI <opensource@elnora.ai> (https://github.com/Elnora-AI)",
   "homepage": "https://github.com/Elnora-AI/elnora-google-workspace",
@@ -14,7 +14,8 @@
   "scripts": {
     "check:secrets": "node scripts/check-no-secrets.mjs",
     "check:json": "node scripts/check-json.mjs",
-    "check": "npm run check:secrets && npm run check:json"
+    "check": "npm run check:secrets && npm run check:json",
+    "check:commits": "node scripts/check-no-secrets.mjs --commits origin/main..HEAD"
   },
   "engines": {
     "node": ">=18"

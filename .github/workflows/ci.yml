@@ -19,11 +19,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          # Full history so the commit-message scan can resolve the base ref.
+          fetch-depth: 0
       - uses: actions/setup-node@v6
         with:
           node-version: "20"
       - run: node scripts/check-no-secrets.mjs
       - run: node scripts/check-json.mjs
+      - name: Scan commit messages on the PR
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --no-tags origin "${{ github.base_ref }}"
+          node scripts/check-no-secrets.mjs --commits "origin/${{ github.base_ref }}..HEAD"
 
   lint:
     name: Lint (ruff)

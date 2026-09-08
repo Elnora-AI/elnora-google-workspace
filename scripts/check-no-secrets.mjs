@@ -17,11 +17,18 @@
 // `.google-token*.json` is the product's own (gitignored) token-file glob and is
 // NOT forbidden — it appears legitimately in code, docs, and .gitignore.
 //
+//   * Commit messages, with --commits <range>. A file guard cannot see a commit
+//     message or a PR body, and both are public on a public repo. A live property
+//     id and an account identifier reached a merged PR that way while every
+//     tracked file stayed clean.
+//
 // An optional, gitignored denylist (scripts/.no-secrets-denylist.txt — one
 // term/regex per line) is also applied when present, so maintainers can scan for
 // org-specific terms locally without committing them.
 //
-// Run:  node scripts/check-no-secrets.mjs   (non-zero exit lists every violation)
+// Run:  node scripts/check-no-secrets.mjs                        (tracked files)
+//       node scripts/check-no-secrets.mjs --commits origin/main..HEAD
+//       (non-zero exit lists every violation)
 
 import { execSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
@@ -126,9 +133,58 @@ function listGitFiles() {
   }
 }
 
+// Identifiers naming a specific customer property. They grant nothing on their
+// own and they still say whose account this is. 123456789 is the documented
+// placeholder and stays allowed.
+const PLACEHOLDER_PROPERTY = /^123456789\d?$/;
+const ANALYTICS_BANNED = [
+  { name: "search console property", re: /\bsc-domain:(?!example\.com\b)[\w.-]+\.\w{2,}/i },
+  { name: "ga4 property id", re: /\b(?:propert(?:y|ies)[\/ =:]+)(\d{9,12})\b/i, idGroup: 1 },
+];
+
 const extra = loadExtraDenylist();
-const files = listGitFiles() ?? (() => { const o = []; walk(ROOT, o); return o; })();
 const violations = [];
+
+const commitsFlag = process.argv.indexOf("--commits");
+if (commitsFlag !== -1) {
+  const range = process.argv[commitsFlag + 1];
+  if (!range) {
+    console.error("--commits needs a range, e.g. --commits origin/main..HEAD");
+    process.exit(2);
+  }
+  let log = "";
+  try {
+    log = execSync(`git log --format=%H%x1f%B%x1e ${range}`, {
+      cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024,
+    });
+  } catch (err) {
+    console.error(`Could not read commits for range ${range}: ${err.message}`);
+    process.exit(2);
+  }
+  for (const record of log.split("\x1e")) {
+    if (!record.trim()) continue;
+    const [sha, message = ""] = record.split("\x1f");
+    const short = sha.trim().slice(0, 8);
+    for (const line of message.split("\n")) {
+      // Authorship trailers are git metadata, not a leak.
+      if (/^\s*(co-authored-by|signed-off-by|author|committer)\s*:/i.test(line)) continue;
+      for (const b of [...IDENTITY_BANNED, ...ANALYTICS_BANNED, ...extra]) {
+        const m = b.re.exec(line);
+        if (!m) continue;
+        if (b.homeGroup && PLACEHOLDER_HOME.test(m[b.homeGroup])) continue;
+        if (b.idGroup && PLACEHOLDER_PROPERTY.test(m[b.idGroup])) continue;
+        violations.push(`commit ${short}  [${b.name}]  ${line.trim().slice(0, 120)}`);
+      }
+      for (const em of line.match(COMPANY_EMAIL) || []) {
+        if (ALLOWED_EMAIL.test(em)) continue;
+        violations.push(`commit ${short}  [company-domain email]  ${em}`);
+      }
+    }
+  }
+  report(`scanned commit messages in ${range}.`);
+}
+
+const files = listGitFiles() ?? (() => { const o = []; walk(ROOT, o); return o; })();
 
 for (const path of files) {
   if (!hasTextExt(path)) continue;
@@ -145,10 +201,11 @@ for (const path of files) {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    for (const b of IDENTITY_BANNED) {
+    for (const b of [...IDENTITY_BANNED, ...ANALYTICS_BANNED]) {
       const m = b.re.exec(line);
       if (!m) continue;
       if (b.homeGroup && PLACEHOLDER_HOME.test(m[b.homeGroup])) continue;
+      if (b.idGroup && PLACEHOLDER_PROPERTY.test(m[b.idGroup])) continue;
       violations.push(`${rel}:${i + 1}  [${b.name}]  ${line.trim().slice(0, 120)}`);
     }
 
@@ -170,6 +227,7 @@ for (const path of files) {
   }
 }
 
+function report(scope) {
 if (violations.length > 0) {
   console.error(`Found ${violations.length} disallowed reference(s). This plugin must be 100% universal.\n`);
   for (const v of violations) console.error(`  - ${v}`);
@@ -181,4 +239,8 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
-console.log(`check-no-secrets: scanned ${files.length} files. No disallowed references found.`);
+console.log(`check-no-secrets: ${scope} No disallowed references found.`);
+process.exit(0);
+}
+
+report(`scanned ${files.length} files.`);

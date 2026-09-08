@@ -1,6 +1,6 @@
 # elnora-google-workspace
 
-**Google Workspace for Claude Code — drive Gmail, Calendar, Drive, Docs, Sheets, Forms, and Tasks from one agent-friendly CLI, with a `gw api` escape hatch to any Google API. Multi-account OAuth, keyring-backed tokens, config-driven and universal.**
+**Gmail, Calendar, Drive, Docs, Sheets, Forms, Tasks, Analytics and Search Console for Claude Code, from one agent-friendly CLI, with a `gw api` escape hatch to any Google API.**
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 
@@ -8,7 +8,7 @@
 
 ## Install
 
-Two slash commands, run them **one at a time** (paste the first, hit enter, wait, then the second):
+Run these one at a time: paste the first, wait for it to finish, then the second.
 
 ```
 /plugin marketplace add Elnora-AI/elnora-google-workspace
@@ -18,148 +18,143 @@ Two slash commands, run them **one at a time** (paste the first, hit enter, wait
 /plugin install google-workspace@elnora-google-workspace
 ```
 
-Then run first-run setup:
+Then set it up:
 
 ```
 /gw-setup
 ```
 
 `/gw-setup` creates the plugin's Python venv, installs dependencies, walks you
-through a Google Cloud project + Desktop OAuth client (driving a browser where it
-can), authenticates, and verifies a real read. The agent does everything it can
-for you and stops only where Google needs a human to click.
+through a Google Cloud project and Desktop OAuth client, authenticates, and
+verifies a real read. It stops where Google needs a human to click.
 
-> You bring your own OAuth client — the plugin ships none. See
+> You bring your own OAuth client; the plugin ships none. See
 > [`settings.example.md`](settings.example.md) and
 > [`accounts.example.json`](accounts.example.json) for the config shapes, and
 > [SAFETY.md](SAFETY.md) for the security posture.
 
 ### Using Codex, Cursor, or another agent
 
-The slash commands and skills are Claude-Code-shaped, but the `gw` CLI is a plain
-Python program. For first-run setup under any agent, hand it
-[`INSTALL_FOR_AGENTS.md`](INSTALL_FOR_AGENTS.md) — a gated, step-by-step runbook
-that builds the venv, helps create the OAuth client (driving the browser where it
-can), authenticates, and verifies a real read. For day-to-day use afterwards, drop
-[`AGENTS.md`](AGENTS.md) at your project root and any agent can call the CLI
-following the same rules (auth, JSON output, destructive-op confirmation).
+The slash commands and skills are Claude-Code-shaped, but `gw` is a plain Python
+program. Hand any agent [`INSTALL_FOR_AGENTS.md`](INSTALL_FOR_AGENTS.md) for
+first-run setup, then drop [`AGENTS.md`](AGENTS.md) at your project root so it
+follows the same rules for auth, JSON output and destructive-op confirmation.
 
 ---
 
 ## What you get
 
-- **Gmail** — send, draft, list, read, reply / reply-all, scan for replies, manage
-  drafts and attachments, labels, threads, trash.
-- **Calendar** — create/update/get/delete events, list upcoming, list calendars,
-  Google Meet links, attendees, timezones, reminders. Also edits booking pages
-  (appointment schedules) by driving your own Chrome, since Google ships no API
-  for them — needs `chrome://inspect/#remote-debugging` enabled.
-- **Drive** — list, get, upload, download, export, move, copy, trash, share.
-- **Docs** — create, read, import Markdown as a native Doc, append, replace.
-- **Sheets** — read, write, append, list.
-- **Forms** — read metadata + responses, create and edit forms.
-- **Tasks** — create, list, complete.
-- **Analytics (GA4)** — properties, reports, realtime, metadata search, and a
-  compatibility check that settles a field name before you spend a call. Read-only,
-  and an **opt-in scope**.
-- **Search Console** — sites, search analytics (queries, pages, CTR, position),
-  sitemaps, URL inspection. Read-only by construction, and an **opt-in scope**.
-- **`gw api` — any Google API.** A generic Discovery invoker reaches services with
-  no curated group (Slides, People, Chat, Admin SDK, Classroom, Apps Script, …) and
-  any uncovered method, with schema introspection, dry-run validation, NDJSON
-  pagination, and a destructive-method guard.
-- **`gw schema`** — show parameters, scopes, and request/response shape for any command.
-- **Multi-account OAuth** — name as many accounts as you like in `accounts.json`;
-  tokens are stored in the OS keyring when available, else a 0600 file.
+| Service | Commands |
+|---|---|
+| **Gmail** | send, draft, list, read, reply and reply-all, scan for replies, drafts, attachments, labels, threads, trash |
+| **Calendar** | create, update, get, delete and list events, list calendars, Meet links, attendees, timezones, reminders. Also edits booking pages by driving your own Chrome, since Google ships no API for them |
+| **Drive** | list, get, upload, download, export, move, copy, trash, share |
+| **Docs** | create, read, import Markdown as a native Doc, append, replace |
+| **Sheets** | read, write, append, list |
+| **Forms** | read metadata and responses, create and edit forms |
+| **Tasks** | create, list, complete |
+| **Analytics (GA4)** | properties, reports, realtime, metadata search, and a compatibility check that settles a field name before you spend a call. Read-only, opt-in scope |
+| **Search Console** | sites, search analytics, sitemaps, URL inspection. Read-only by construction, opt-in scope |
 
-Everything is **config-driven** — accounts, the config dir, and every optional
-feature come from your config or environment. Nothing personal or company-specific
-is baked in.
+`gw api` reaches any Google API through Discovery, covering services with no
+curated group (Slides, People, Chat, Admin SDK, Classroom, Apps Script) and any
+uncovered method, with schema introspection, dry-run validation, NDJSON
+pagination and a destructive-method guard. `gw schema` shows parameters, scopes
+and request and response shapes for any command.
+
+Name as many accounts as you like in `accounts.json`. Tokens are stored in the OS
+keyring when one is available, otherwise a 0600 file.
+
+Everything is config-driven. Accounts, the config directory and every optional
+feature come from your config or environment, so nothing personal or
+company-specific is baked in.
+
+`--output csv` and `--fields` trim a response to what an agent needs, and both go
+before the subcommand: `gw --output csv analytics report ...`.
 
 ### Slash commands
 
 | Command | Does |
 |---|---|
-| `/gw-setup` | First-run: venv, deps, Google Cloud OAuth client, authenticate, verify |
-| `/gw-inbox [timeframe]` | Quick inbox scan — recent emails with sender, subject, snippet |
-| `/draft-email …` | Draft a Gmail email or reply (draft only — never sends) with CRM context |
-| `/prep-meeting <event>` | Pre-meeting brief from CRM + transcripts (needs the optional knowledge base) |
+| `/gw-setup` | First run: venv, deps, Google Cloud OAuth client, authenticate, verify |
+| `/gw-inbox [timeframe]` | Inbox scan with sender, subject and snippet |
+| `/draft-email` | Draft a Gmail email or reply, with CRM context. Drafts only, and never sends |
+| `/prep-meeting <event>` | Pre-meeting brief from CRM and transcripts (needs the optional knowledge base) |
 
-### Skills & agents
+### Skills and agents
 
-- **Skills:** `gw-setup` (onboarding), a `google-workspace` router, and one per
-  service — `gw-gmail`, `gw-calendar`, `gw-drive`, `gw-docs`, `gw-sheets`,
-  `gw-forms`, `gw-tasks`, `gw-inbox`, `gw-analytics`, `gw-searchconsole` — plus
-  `gw-api` for the generic invoker.
-- **Agent:** `cold-outreach` — send outreach from a contact sheet or the CRM, scan
-  for replies, and track stats (draft-first; the CRM path needs the optional
-  knowledge base).
+`gw-setup` for onboarding, a `google-workspace` router, one skill per service
+(`gw-gmail`, `gw-calendar`, `gw-drive`, `gw-docs`, `gw-sheets`, `gw-forms`,
+`gw-tasks`, `gw-inbox`, `gw-analytics`, `gw-searchconsole`) and `gw-api` for the
+generic invoker.
+
+The `cold-outreach` agent sends outreach from a contact sheet or the CRM, scans
+for replies and tracks stats. It drafts first, and its CRM path needs the
+optional knowledge base.
 
 ---
 
 ## Configuration
 
 - **Accounts** live in `$GW_CONFIG_DIR/accounts.json` (default
-  `~/.config/gw/accounts.json`), created by `gw auth login --account <name>`. See
-  [`accounts.example.json`](accounts.example.json).
-- **OAuth client** — provide your own Desktop client via
-  `~/.config/gw/client_secret.json`, `GW_CLIENT_ID`/`GW_CLIENT_SECRET`, or
+  `~/.config/gw/accounts.json`), created by `gw auth login --account <name>`.
+- **OAuth client**: provide your own Desktop client via
+  `~/.config/gw/client_secret.json`, `GW_CLIENT_ID` and `GW_CLIENT_SECRET`, or
   `gw auth login --client-secret-file PATH`.
-- **Tokens** are stored in the OS keyring (with the optional `keyring` package) or a
-  0600 JSON file under the config dir. Nothing is ever written into the repo.
-- Full option list: [`settings.example.md`](settings.example.md).
+- **Tokens** go to the OS keyring (with the optional `keyring` package) or a 0600
+  JSON file under the config directory. Nothing is written into the repo.
+- **Opt-in scopes**: Analytics and Search Console are excluded from a default
+  login. Add them with `gw auth login --add-scopes analytics,searchconsole`,
+  which keeps the scopes an account already holds. A login replaces the token, so
+  `--scopes` would drop everything it does not name.
 
-## The self-driving system (with knowledge-vault)
+Full option list: [`settings.example.md`](settings.example.md).
+
+## With knowledge-vault
 
 Install [`Elnora-AI/knowledge-vault`](https://github.com/Elnora-AI/knowledge-vault)
-alongside this plugin and the two compose into one system that quietly keeps itself
-up to date: Gmail and Calendar are the senses, the vault is the memory, and a
-scheduled sync keeps a CRM fresh from your real activity. Each plugin still works
-on its own — knowledge-vault is a full vault without Google, and every Google
-command here works without a vault.
-
-Batteries-included setup (once both plugins are installed):
+alongside this plugin and a scheduled sync keeps a CRM current from your real Gmail
+and Calendar activity. Either works on its own.
 
 ```sh
-gw auth login                 # one-time Google sign-in (browser OAuth; run /gw-setup first for the OAuth client)
-gw crm init                   # scaffold contacts.csv + companies.csv in your vault
-gw gmail sync-crm-install     # schedule email → CRM (auto-registers, see below)
-gw calendar sync-crm-install  # schedule calendar → CRM
+gw auth login                 # one-time Google sign-in
+gw crm init                   # scaffold contacts.csv and companies.csv in your vault
+gw gmail sync-crm-install     # schedule email to CRM
+gw calendar sync-crm-install  # schedule calendar to CRM
 ```
 
-`gw crm init` needs only `vault_path` in `.claude/knowledge-base.local.md` — the file
-knowledge-vault writes. The CRM lands at `<vault>/crm` by default (override with
-`crm_dir`, or nest under `company_dir`). From then on the sync bumps
-`last_contact_date`, promotes pipeline stages, and links meetings — no manual work.
+`gw crm init` needs only `vault_path` in `.claude/knowledge-base.local.md`, the
+file knowledge-vault writes. The CRM lands at `<vault>/crm` by default. The sync
+then bumps `last_contact_date`, promotes pipeline stages and links meetings.
 
-Every connector feature degrades to a clean no-op when no knowledge base is
-configured; the core Google commands never depend on it. Tune it with
-`GW_INTERNAL_DOMAINS`, `GW_TRANSCRIPT_DIRS`, `GW_SLACK_USER_ID`, `GW_SLACK_CLI_BIN`,
-and `GW_EXA_LIB` (see [`settings.example.md`](settings.example.md)).
+Connector features are a clean no-op when no knowledge base is configured, and the
+core Google commands do not depend on one.
 
 ## Scheduling
 
-`gw gmail sync-crm-install` and `gw calendar sync-crm-install` register the CRM sync
-on your OS's native scheduler automatically — launchd (macOS), Task Scheduler
-(Windows), or the user crontab (Linux) — pinning the resolved knowledge-base config
-so the detached job finds the same vault. If the scheduler can't be driven, the exact
-command is printed instead (no elevated permissions are ever taken on your behalf).
-`--interval-hours N` sets the cadence (default 2). Remove either with the matching
-`sync-crm-uninstall`.
+The `sync-crm-install` commands register the sync on your OS's native scheduler:
+launchd on macOS, Task Scheduler on Windows, or the user crontab on Linux. They pin
+the resolved knowledge-base config so the detached job finds the same vault. Where
+the scheduler cannot be driven the exact command is printed instead, and no
+elevated permissions are taken on your behalf. `--interval-hours N` sets the
+cadence, defaulting to 2, and `sync-crm-uninstall` removes it.
 
-> Windows and Linux auto-registration is implemented but still pending a live
-> verification pass on those platforms; macOS is fully verified.
+> Windows and Linux auto-registration is implemented and still pending a live
+> verification pass. macOS is verified.
 
 ## Safety
 
 Read-only by default where it matters, explicit confirmation for destructive
 operations, OS-keyring or 0600-file token storage, path-traversal validation,
-credential scrubbing from all output, trash-not-delete for Drive, and draft-first
-outreach. See [SAFETY.md](SAFETY.md).
+credential scrubbing from output, trash rather than delete for Drive, and
+draft-first outreach. See [SAFETY.md](SAFETY.md).
 
 ## Part of the Elnora family
 
-Open-source agent tooling from [Elnora AI](https://github.com/Elnora-AI) — free, universal, config-driven tools that wire Claude Code (or any AI coding agent) into the systems you run your company on. Each works 100% standalone; install several and they chain into end-to-end workflows.
+Open-source agent tooling from [Elnora AI](https://github.com/Elnora-AI):
+config-driven tools that wire Claude Code, or any AI coding agent, into the
+systems you run your company on. Each works standalone, and installing several
+chains them into end-to-end workflows.
 
 <!-- ELNORA-FAMILY:START -->
 - [elnora-linear](https://github.com/Elnora-AI/elnora-linear) — Linear issue management — search, bulk edit, agents, and a config-driven curator
@@ -177,8 +172,14 @@ Open-source agent tooling from [Elnora AI](https://github.com/Elnora-AI) — fre
 
 ```
 python -m pytest tests -q      # test suite
-npm run check                  # secret + JSON guards (CI runs these)
+npm run check                  # secret and JSON guards over tracked files
+npm run check:commits          # the same guards over commit messages
 ```
+
+CI runs all of these. The commit scan exists because a file guard cannot see a
+commit message or a PR body, and on a public repo both are readable by anyone.
+Use placeholders in examples and fixtures: `example.com`, `sc-domain:example.com`,
+`properties/123456789`.
 
 ## License
 
