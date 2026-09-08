@@ -50,6 +50,13 @@ All notable changes to this project are documented here. The format is based on
   unaffected. An empty (freshly-scaffolded) CRM now syncs as a clean no-op instead of
   reporting an error.
 
+## [1.3.1](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.3.0...v1.3.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* **cli:** report the version the plugin actually ships ([#43](https://github.com/Elnora-AI/elnora-google-workspace/issues/43)) ([9dd1623](https://github.com/Elnora-AI/elnora-google-workspace/commit/9dd162365565d8fa5aafe40bf4f456710c54744d))
+
 ## [1.3.0](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.2.0...v1.3.0) (2026-09-08)
 
 
