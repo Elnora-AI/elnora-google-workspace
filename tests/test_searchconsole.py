@@ -246,7 +246,7 @@ class TestDimensionCasingIsCanonical:
                       "ctr": 0.33, "position": 1.5}]
         }
         with patch("searchconsole_ops.build_service", return_value=svc):
-            out = searchconsole_ops.query(site="sc-domain:x.com", dimensions="QUERY")
+            out = searchconsole_ops.query(site="sc-domain:example.com", dimensions="QUERY")
         assert out["dimensions"] == ["query"]
         assert "query" in out["rows"][0]
         assert "QUERY" not in out["rows"][0]
