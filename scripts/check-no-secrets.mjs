@@ -30,7 +30,7 @@
 //       node scripts/check-no-secrets.mjs --commits origin/main..HEAD
 //       (non-zero exit lists every violation)
 
-import { execSync } from "node:child_process";
+import { execSync, execFileSync } from "node:child_process";
 import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { join, relative, basename } from "node:path";
 
@@ -138,7 +138,7 @@ function listGitFiles() {
 // placeholder and stays allowed.
 const PLACEHOLDER_PROPERTY = /^123456789\d?$/;
 const ANALYTICS_BANNED = [
-  { name: "search console property", re: /\bsc-domain:(?!example\.com\b)[\w.-]+\.\w{2,}/i },
+  { name: "search console property", re: /\bsc-domain:(?!example\.com(?![\w.-]))[\w.-]+\.\w{2,}/i },
   { name: "ga4 property id", re: /\b(?:propert(?:y|ies)[\/ =:]+)(\d{9,12})\b/i, idGroup: 1 },
 ];
 
@@ -154,7 +154,9 @@ if (commitsFlag !== -1) {
   }
   let log = "";
   try {
-    log = execSync(`git log --format=%H%x1f%B%x1e ${range}`, {
+    // execFileSync, not a shell template: the range comes off argv and a shell
+    // would evaluate whatever is in it.
+    log = execFileSync("git", ["log", "--format=%H%x1f%B%x1e", range], {
       cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024,
     });
   } catch (err) {
