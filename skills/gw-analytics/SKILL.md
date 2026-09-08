@@ -111,6 +111,19 @@ mean different things and are reported separately:
 A name that is not a GA4 field at all fails earlier, at the API, and the error carries a
 correction: `Did you mean browserVersion? Field zzz is not a valid dimension.`
 
+## Cheapest output for an agent
+
+`--output csv` collapses a report to a header and rows, which is far smaller than the JSON
+and is usually all an agent needs to answer a question:
+
+```bash
+$CLI --output csv analytics report --property PROPERTY_ID \
+  --metrics sessions --dimensions date --since 7daysAgo
+```
+
+`--output` and `--fields` are **group-level** flags: they go **before** the subcommand.
+`--compact` and `--account` go after it. `--fields rows` keeps only the rows key.
+
 ## Limits
 
 GA4 accepts at most 9 dimensions per request, enforced before the call.

@@ -75,6 +75,17 @@ on input.
 less than the real figure and reads as a drop. Quote the `window` echoed back in the response
 rather than the window you asked for.
 
+## Cheapest output for an agent
+
+`--output csv` collapses the rows to a header and lines, far smaller than the JSON:
+
+```bash
+$CLI --output csv searchconsole query --site SITE --dimensions query --limit 25
+```
+
+`--output` and `--fields` are **group-level** flags: they go **before** the subcommand.
+`--compact` and `--account` go after it.
+
 ## Response shapes (validated)
 
 `sites`: `{"sites":[{"site_url","permission_level"}],"count"}`
