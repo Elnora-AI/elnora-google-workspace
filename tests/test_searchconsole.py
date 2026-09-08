@@ -30,18 +30,31 @@ class TestDates:
 
 
 class TestFilters:
-    def test_operators_map_to_the_api_names(self):
+    def test_operators_and_dimensions_use_the_discovery_spelling(self):
+        """The v1 discovery enums are upper snake case; only that is guaranteed."""
         assert searchconsole_ops._build_filters(["query~~pricing"])[0]["filters"][0] == {
-            "dimension": "query",
-            "operator": "contains",
+            "dimension": "QUERY",
+            "operator": "CONTAINS",
             "expression": "pricing",
         }
         assert searchconsole_ops._build_filters(["page=~^/blog"])[0]["filters"][0][
             "operator"
-        ] == "includingRegex"
+        ] == "INCLUDING_REGEX"
         assert searchconsole_ops._build_filters(["device==MOBILE"])[0]["filters"][0][
             "operator"
-        ] == "equals"
+        ] == "EQUALS"
+        assert searchconsole_ops._build_filters(["query!=brand"])[0]["filters"][0][
+            "operator"
+        ] == "NOT_EQUALS"
+
+    def test_camel_case_dimension_normalises(self):
+        assert searchconsole_ops._build_filters(["searchAppearance==AMP_BLUE_LINK"])[0][
+            "filters"
+        ][0]["dimension"] == "SEARCH_APPEARANCE"
+
+    def test_date_is_groupable_but_not_filterable(self):
+        with pytest.raises(ValidationError, match="Cannot filter on dimension"):
+            searchconsole_ops._build_filters(["date==2026-08-01"])
 
     def test_multiple_become_separate_groups(self):
         groups = searchconsole_ops._build_filters(["query~~pricing", "device==MOBILE"])
@@ -122,6 +135,41 @@ class TestQuery:
         mod, _ = patch_sc
         assert mod.query(site="sc-domain:example.com", dimensions="device")["note"] is None
 
+    def test_request_enums_are_normalised(self, patch_sc):
+        mod, svc = patch_sc
+        mod.query(site="sc-domain:example.com", dimensions="query,page",
+                  search_type="web", data_state="final")
+        body = svc.searchanalytics().query.call_args.kwargs["body"]
+        assert body["dimensions"] == ["QUERY", "PAGE"]
+        assert body["type"] == "WEB"
+        assert body["dataState"] == "FINAL"
+
+    def test_unknown_search_type_is_rejected(self, patch_sc):
+        mod, _ = patch_sc
+        with pytest.raises(ValidationError, match="Unknown search type"):
+            mod.query(site="sc-domain:example.com", search_type="organic")
+
+    def test_unknown_data_state_is_rejected(self, patch_sc):
+        mod, _ = patch_sc
+        with pytest.raises(ValidationError, match="Unknown data state"):
+            mod.query(site="sc-domain:example.com", data_state="fresh")
+
+    def test_hour_grouping_requires_hourly_data_state(self, patch_sc):
+        mod, _ = patch_sc
+        with pytest.raises(ValidationError, match="requires --data-state hourlyAll"):
+            mod.query(site="sc-domain:example.com", dimensions="hour")
+
+    def test_hour_grouping_allowed_with_hourly_all(self, patch_sc):
+        mod, svc = patch_sc
+        mod.query(site="sc-domain:example.com", dimensions="hour", data_state="hourlyAll")
+        assert svc.searchanalytics().query.call_args.kwargs["body"]["dataState"] == "HOURLY_ALL"
+
+    def test_threshold_note_points_at_a_command_that_works(self, patch_sc):
+        """The CLI default is 'query', so 'omit --dimensions' was wrong advice."""
+        mod, _ = patch_sc
+        note = mod.query(site="sc-domain:example.com", dimensions="query")["note"]
+        assert "--dimensions ''" in note
+
     def test_unknown_dimension_is_rejected(self, patch_sc):
         mod, _ = patch_sc
         with pytest.raises(ValidationError, match="Unknown dimension"):
@@ -171,6 +219,19 @@ class TestInspectUrl:
 
 class TestWriteSurfaceIsAbsent:
     def test_no_destructive_operations_are_exposed(self):
-        """sites.add/delete and sitemaps.submit/delete stay unreachable from the CLI."""
-        for forbidden in ("add_site", "delete_site", "submit_sitemap", "delete_sitemap"):
-            assert not hasattr(searchconsole_ops, forbidden)
+        """Guards the shape, not a name list, so a future create_site cannot slip past."""
+        allowed = {"list_sites", "query", "list_sitemaps", "inspect_url",
+                   "flatten_rows"}
+        public = {
+            name for name in dir(searchconsole_ops)
+            if not name.startswith("_") and callable(getattr(searchconsole_ops, name))
+            and getattr(getattr(searchconsole_ops, name), "__module__", "") == "searchconsole_ops"
+        }
+        assert public == allowed, f"unexpected public callable(s): {public - allowed}"
+
+    def test_no_write_verb_appears_in_any_public_name(self):
+        for name in dir(searchconsole_ops):
+            if name.startswith("_"):
+                continue
+            for verb in ("add", "create", "delete", "remove", "submit", "update", "put"):
+                assert not name.lower().startswith(verb), f"write-shaped name: {name}"

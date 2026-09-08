@@ -25,14 +25,39 @@ _RELATIVE = re.compile(r"^(today|yesterday|(\d+)daysAgo)$")
 # dimension~~substring / dimension==value / dimension=~regex
 _FILTER = re.compile(r"^([A-Za-z0-9_]+)(==|!=|~~|=~)(.*)$")
 
+# The v1 discovery document spells every one of these enums in upper snake
+# case. Google's published examples use lower camel case and the API has long
+# accepted it, but only the discovery spelling is guaranteed by the contract,
+# so input is accepted in either form and normalised upward before it is sent.
 _OPERATORS = {
-    "==": "equals",
-    "!=": "notEquals",
-    "~~": "contains",
-    "=~": "includingRegex",
+    "==": "EQUALS",
+    "!=": "NOT_EQUALS",
+    "~~": "CONTAINS",
+    "=~": "INCLUDING_REGEX",
 }
 
-VALID_DIMENSIONS = ("query", "page", "country", "device", "searchAppearance", "date")
+# Grouping dimensions (SearchAnalyticsQueryRequest.dimensions).
+VALID_DIMENSIONS = ("query", "page", "country", "device", "searchAppearance", "date", "hour")
+
+# Filterable dimensions (ApiDimensionFilter.dimension). Narrower than the
+# grouping set: date and hour can be grouped by but not filtered on.
+FILTERABLE_DIMENSIONS = ("query", "page", "country", "device", "searchAppearance")
+
+VALID_SEARCH_TYPES = ("web", "image", "video", "news", "discover", "googleNews")
+
+VALID_DATA_STATES = ("final", "all", "hourlyAll")
+
+_ENUM_OVERRIDES = {
+    "searchappearance": "SEARCH_APPEARANCE",
+    "googlenews": "GOOGLE_NEWS",
+    "hourlyall": "HOURLY_ALL",
+}
+
+
+def _enum(value: str) -> str:
+    """Normalise a caller's value to the discovery document's spelling."""
+    key = str(value).strip().replace("_", "").replace("-", "").lower()
+    return _ENUM_OVERRIDES.get(key, str(value).strip().upper())
 
 
 def _service(account: str | None = None):
@@ -74,11 +99,18 @@ def _build_filters(expressions: tuple[str, ...] | list[str]) -> list[dict]:
                 "Repeat --filter to AND several together.",
             )
         dimension, op, value = m.group(1), m.group(2), m.group(3)
+        if dimension.lower() not in [d.lower() for d in FILTERABLE_DIMENSIONS]:
+            raise ValidationError(
+                f"Cannot filter on dimension {dimension!r}.",
+                suggestion=f"Filterable: {', '.join(FILTERABLE_DIMENSIONS)}. "
+                "date and hour can be grouped by but not filtered on; "
+                "narrow the window with --since and --until instead.",
+            )
         groups.append(
             {
                 "filters": [
                     {
-                        "dimension": dimension,
+                        "dimension": _enum(dimension),
                         "operator": _OPERATORS[op],
                         "expression": value,
                     }
@@ -140,11 +172,28 @@ def query(
     asking for yesterday reliably returns less than the real figure.
     """
     dimension_names = _split(dimensions)
-    unknown = [d for d in dimension_names if d not in VALID_DIMENSIONS]
+    valid_lower = [d.lower() for d in VALID_DIMENSIONS]
+    unknown = [d for d in dimension_names if d.lower() not in valid_lower]
     if unknown:
         raise ValidationError(
             f"Unknown dimension(s): {', '.join(unknown)}.",
             suggestion=f"Valid: {', '.join(VALID_DIMENSIONS)}",
+        )
+    if _enum(search_type) not in [_enum(s) for s in VALID_SEARCH_TYPES]:
+        raise ValidationError(
+            f"Unknown search type: {search_type!r}.",
+            suggestion=f"Valid: {', '.join(VALID_SEARCH_TYPES)}",
+        )
+    if _enum(data_state) not in [_enum(s) for s in VALID_DATA_STATES]:
+        raise ValidationError(
+            f"Unknown data state: {data_state!r}.",
+            suggestion=f"Valid: {', '.join(VALID_DATA_STATES)}",
+        )
+    # Grouping by hour is only served when the data state asks for hourly rows.
+    if "hour" in [d.lower() for d in dimension_names] and _enum(data_state) != "HOURLY_ALL":
+        raise ValidationError(
+            "Grouping by hour requires --data-state hourlyAll.",
+            suggestion="Add --data-state hourlyAll, or drop hour from --dimensions.",
         )
     if int(limit) > 25000:
         raise ValidationError(
@@ -155,11 +204,11 @@ def query(
     body: dict = {
         "startDate": _resolve_date(since, field="since"),
         "endDate": _resolve_date(until, field="until"),
-        "dimensions": dimension_names,
+        "dimensions": [_enum(d) for d in dimension_names],
         "rowLimit": int(limit),
         "startRow": int(start_row),
-        "type": search_type,
-        "dataState": data_state,
+        "type": _enum(search_type),
+        "dataState": _enum(data_state),
     }
     filter_groups = _build_filters(filters)
     if filter_groups:
@@ -186,7 +235,7 @@ def query(
         # letting a caller sum the column and believe it.
         "note": (
             "Rows below Google's privacy threshold are withheld, so these rows "
-            "do not sum to the site total. Query without --dimensions for a total."
+            "do not sum to the site total. Pass --dimensions '' for the site total."
         )
         if "query" in dimension_names
         else None,

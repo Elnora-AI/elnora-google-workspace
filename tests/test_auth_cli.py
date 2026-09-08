@@ -364,6 +364,16 @@ class TestPerformLogin:
         for kept in granted:
             assert kept in requested
 
+    def test_add_scopes_refuses_when_there_is_nothing_to_add_to(self, env, monkeypatch):
+        """With no readable token, 'add' would silently become 'replace'."""
+        from output import ValidationError
+
+        monkeypatch.setenv("GW_CLIENT_ID", "id")
+        monkeypatch.setenv("GW_CLIENT_SECRET", "sec")
+        _fake_flow(monkeypatch, [])
+        with pytest.raises(ValidationError, match="nothing to add to"):
+            perform_login(account="fresh", add_scopes="analytics")
+
     def test_scopes_and_add_scopes_are_mutually_exclusive(self, env, monkeypatch):
         from output import ValidationError
 

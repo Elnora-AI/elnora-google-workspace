@@ -208,8 +208,56 @@ class TestReport:
         with pytest.raises(ValidationError, match="at most 9 dimensions"):
             mod.report(property_id="123", dimensions=",".join(f"d{i}" for i in range(10)))
 
+    def test_order_by_a_dimension_uses_the_dimension_variant(self, patch_data):
+        """OrderBy carries a dimension field; a metric OrderBy for 'date' 400s."""
+        mod, svc = patch_data
+        mod.report(property_id="123", metrics="sessions", dimensions="date", order_by="date")
+        body = svc.properties().runReport.call_args.kwargs["body"]
+        assert body["orderBys"] == [{"desc": False, "dimension": {"dimensionName": "date"}}]
+
+    def test_order_by_a_metric_descending(self, patch_data):
+        mod, svc = patch_data
+        mod.report(property_id="123", metrics="sessions", dimensions="date", order_by="-sessions")
+        body = svc.properties().runReport.call_args.kwargs["body"]
+        assert body["orderBys"] == [{"desc": True, "metric": {"metricName": "sessions"}}]
+
+    def test_order_by_an_unrequested_field_is_rejected_by_name(self, patch_data):
+        mod, _ = patch_data
+        with pytest.raises(ValidationError, match="neither a requested metric"):
+            mod.report(property_id="123", metrics="sessions", dimensions="date",
+                       order_by="activeUsers")
+
+    def test_bare_minus_order_by_is_rejected(self, patch_data):
+        """'-' alone used to emit an empty OrderBy and an opaque 400."""
+        mod, _ = patch_data
+        with pytest.raises(ValidationError, match="names no field"):
+            mod.report(property_id="123", metrics="sessions", order_by="-")
+
 
 class TestListProperties:
+    def test_follows_pagination(self):
+        """A truncated property list is a silently wrong answer."""
+        svc = MagicMock()
+        page1 = {
+            "accountSummaries": [
+                {"displayName": "Acme", "propertySummaries": [
+                    {"property": "properties/1", "displayName": "One"}]}
+            ],
+            "nextPageToken": "tok",
+        }
+        page2 = {
+            "accountSummaries": [
+                {"displayName": "Acme", "propertySummaries": [
+                    {"property": "properties/2", "displayName": "Two"}]}
+            ]
+        }
+        svc.accountSummaries().list().execute.side_effect = [page1, page2]
+        with patch("analytics_ops.build_service", return_value=svc):
+            out = analytics_ops.list_properties()
+        assert out["count"] == 2
+        assert [p["property_id"] for p in out["properties"]] == ["1", "2"]
+        assert "truncated" not in out
+
     def test_flattens_account_summaries(self):
         svc = MagicMock()
         svc.accountSummaries().list().execute.return_value = {
@@ -260,6 +308,18 @@ class TestMetadata:
 
 
 class TestCheckCompatibility:
+    def test_does_not_filter_the_response_to_compatible_only(self):
+        """compatibilityFilter=COMPATIBLE makes the API strip the very entries
+        this command exists to surface, so it must not be sent."""
+        svc = MagicMock()
+        svc.properties().checkCompatibility().execute.return_value = {
+            "dimensionCompatibilities": [], "metricCompatibilities": []
+        }
+        with patch("analytics_ops.build_service", return_value=svc):
+            analytics_ops.check_compatibility(property_id="123", dimensions="date")
+        body = svc.properties().checkCompatibility.call_args.kwargs["body"]
+        assert "compatibilityFilter" not in body
+
     def test_reports_incompatible_fields(self):
         svc = MagicMock()
         svc.properties().checkCompatibility().execute.return_value = {

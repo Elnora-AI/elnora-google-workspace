@@ -140,6 +140,16 @@ def perform_login(
     # scope the account already had. --add-scopes keeps what is there and adds
     # to it; a bare --scopes that would lose something says so first.
     if add_scopes:
+        # "Add" needs something to add to. With no readable token the union
+        # degenerates to the named services alone, which is a silent replace
+        # wearing the flag that exists to prevent one, so it is refused.
+        if not granted:
+            raise ValidationError(
+                f"No existing scopes found for account '{name}', so there is "
+                "nothing to add to.",
+                suggestion="Run a normal 'gw auth login' first, or name every "
+                "service you want with --scopes.",
+            )
         scope_list = granted + [s for s in scope_list if s not in granted]
     elif scopes and granted:
         dropped = [s for s in granted if s not in scope_list]

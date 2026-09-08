@@ -50,7 +50,7 @@ def _admin(account: str | None = None):
 
 
 def _property_path(property_id: str) -> str:
-    """Accept 123456, properties/123456 or a full resource name."""
+    """Accept 123456 or properties/123456. Anything deeper is rejected."""
     pid = str(property_id).strip()
     if pid.startswith("properties/"):
         pid = pid.split("/", 1)[1]
@@ -125,17 +125,41 @@ def _build_filter(expressions: tuple[str, ...] | list[str]) -> dict | None:
     return {"andGroup": {"expressions": clauses}}
 
 
-def _order_bys(order_by: str | None) -> list[dict] | None:
-    """'-sessions' -> descending metric; 'date' -> ascending dimension."""
+def _order_bys(
+    order_by: str | None,
+    metric_names: list[str],
+    dimension_names: list[str],
+) -> list[dict] | None:
+    """'-sessions' -> descending metric; 'date' -> ascending dimension.
+
+    OrderBy carries both a metric and a dimension variant, so a field is
+    matched against what the request actually asked for. Guessing wrong here
+    surfaces as an opaque 400, which is why an unknown field is rejected by
+    name before the call is made.
+    """
     if not order_by:
         return None
     out = []
     for raw in _split(order_by):
         desc = raw.startswith("-")
         name = raw[1:] if desc else raw
-        # A name that is also a requested metric orders by metric; the API
-        # rejects the wrong one clearly, so no guessing is hidden here.
-        out.append({"desc": desc, "metric": {"metricName": name}} if name else {})
+        if not name:
+            raise ValidationError(
+                f"Invalid --order-by: {raw!r} names no field.",
+                suggestion="Use a metric or dimension you requested, "
+                "prefixed with - for descending.",
+            )
+        if name in metric_names:
+            out.append({"desc": desc, "metric": {"metricName": name}})
+        elif name in dimension_names:
+            out.append({"desc": desc, "dimension": {"dimensionName": name}})
+        else:
+            raise ValidationError(
+                f"Cannot order by {name!r}: it is neither a requested metric "
+                f"nor a requested dimension.",
+                suggestion=f"Requested metrics: {', '.join(metric_names) or 'none'}. "
+                f"Requested dimensions: {', '.join(dimension_names) or 'none'}.",
+            )
     return out or None
 
 
@@ -189,24 +213,38 @@ def flatten_report(response: dict) -> dict:
 
 def list_properties(account: str | None = None) -> dict:
     """Every GA4 property this token can reach, flattened to id + name."""
-    try:
-        result = _admin(account).accountSummaries().list(pageSize=200).execute()
-    except HttpError as e:
-        handle_http_error(e, "analytics list properties")
-        raise  # unreachable
-
     properties = []
-    for summary in result.get("accountSummaries", []) or []:
-        for prop in summary.get("propertySummaries", []) or []:
-            properties.append(
-                {
-                    "property_id": (prop.get("property") or "").split("/")[-1],
-                    "display_name": prop.get("displayName"),
-                    "account": summary.get("displayName"),
-                    "property_type": prop.get("propertyType"),
-                }
-            )
-    return {"properties": properties, "count": len(properties)}
+    page_token = None
+    pages = 0
+    resource = _admin(account).accountSummaries()
+    while True:
+        try:
+            result = resource.list(pageSize=200, pageToken=page_token).execute()
+        except HttpError as e:
+            handle_http_error(e, "analytics list properties")
+            raise  # unreachable
+        for summary in result.get("accountSummaries", []) or []:
+            for prop in summary.get("propertySummaries", []) or []:
+                properties.append(
+                    {
+                        "property_id": (prop.get("property") or "").split("/")[-1],
+                        "display_name": prop.get("displayName"),
+                        "account": summary.get("displayName"),
+                        "property_type": prop.get("propertyType"),
+                    }
+                )
+        page_token = result.get("nextPageToken")
+        pages += 1
+        # A truncated property list is a silently wrong answer, so pages are
+        # followed rather than dropped. The ceiling only exists to bound a
+        # pathological loop, and it is reported when it bites.
+        if not page_token or pages >= 20:
+            break
+    out = {"properties": properties, "count": len(properties)}
+    if page_token:
+        out["truncated"] = True
+        out["note"] = "Stopped after 20 pages; more properties exist."
+    return out
 
 
 def report(
@@ -252,7 +290,7 @@ def report(
     filter_expr = _build_filter(filters)
     if filter_expr:
         body["dimensionFilter"] = filter_expr
-    orders = _order_bys(order_by)
+    orders = _order_bys(order_by, metric_names, dimension_names)
     if orders:
         body["orderBys"] = orders
     if totals:
@@ -363,10 +401,12 @@ def check_compatibility(
     Cheaper than running the report and reading the 400, and it names the
     fields that would have to be dropped.
     """
-    body: dict = {
-        "metrics": [{"name": n} for n in _split(metrics)],
-        "compatibilityFilter": "COMPATIBLE",
-    }
+    # compatibilityFilter is deliberately NOT set. The discovery doc defines it
+    # as "Filters the dimensions and metrics in the response to just this
+    # compatibility", so passing COMPATIBLE makes the API strip the very
+    # entries this command exists to surface, and it would answer COMPATIBLE
+    # for a field name that does not exist.
+    body: dict = {"metrics": [{"name": n} for n in _split(metrics)]}
     dimension_names = _split(dimensions)
     if dimension_names:
         body["dimensions"] = [{"name": n} for n in dimension_names]
