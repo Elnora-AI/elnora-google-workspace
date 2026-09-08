@@ -187,3 +187,28 @@ class TestFindDataArrayFallsBackToTheOnlyArray:
     def test_no_array_is_still_none(self):
         from output import _find_data_array
         assert _find_data_array({"site": "x", "count": 0}) is None
+
+
+class TestScrubUrlComponents:
+    """Sparing whole URLs from the generic pattern would let a credential ride
+    through in a path segment, so it is applied per URL component instead."""
+
+    def test_blob_in_a_path_segment_is_redacted(self):
+        from output import _scrub_credentials
+        blob = "A" * 50
+        out = _scrub_credentials(f"https://x.com/files/{blob}/download")
+        assert blob not in out
+        assert "[REDACTED]" in out
+        assert out.startswith("https://x.com/files/")
+
+    def test_blob_in_an_unnamed_query_value_is_redacted(self):
+        from output import _scrub_credentials
+        blob = "B" * 44
+        out = _scrub_credentials(f"https://x.com/v1?t={blob}&page=2")
+        assert blob not in out
+        assert "page=2" in out
+
+    def test_long_doc_path_still_survives(self):
+        from output import _scrub_credentials
+        url = "https://developers.google.com/analytics/devguides/reporting/data/v1/api-schema"
+        assert _scrub_credentials(url) == url

@@ -160,10 +160,23 @@ _NAMED_CREDENTIAL_RE = re.compile(
 )
 
 
+# Inside a URL the generic pattern is applied per component rather than across
+# the whole string. A documentation path is long only because of its slashes --
+# every individual segment is short -- while a credential is one unbroken run,
+# so this keeps the link readable without letting a blob ride through in a path
+# segment or a query value.
+_URL_COMPONENT_SPLIT = re.compile(r"([/?&#=;,])")
+_LONG_B64_RE = re.compile(r"^[a-zA-Z0-9+]{40,}={0,2}$")
+
+
 def _scrub_url(match: re.Match) -> str:
     url = match.group(0)
     url = _NAMED_CREDENTIAL_RE.sub("[REDACTED]", url)
-    return _OAUTH_TOKEN_RE.sub("[REDACTED]", url)
+    url = _OAUTH_TOKEN_RE.sub("[REDACTED]", url)
+    parts = _URL_COMPONENT_SPLIT.split(url)
+    return "".join(
+        "[REDACTED]" if _LONG_B64_RE.match(part) else part for part in parts
+    )
 
 
 def _scrub_credentials(text: str) -> str:
