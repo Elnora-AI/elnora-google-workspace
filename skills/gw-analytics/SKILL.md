@@ -44,11 +44,14 @@ $CLI analytics realtime --property PROPERTY_ID [--metrics activeUsers] [--dimens
 
 $CLI analytics metadata --property PROPERTY_ID [--kind all|dimensions|metrics] [--grep TERM] [--full]
 
-$CLI analytics check --property PROPERTY_ID [--metrics sessions] [--dimensions pagePath]
+$CLI analytics check --property PROPERTY_ID [--metrics sessions] [--dimensions pagePath] [--suggest]
 ```
 
-`--property` takes the numeric property id. A measurement id (`G-XXXXXXXXXX`) is the tag, not
-the property, and is rejected by name rather than passed on to a confusing API error.
+`--property` takes the numeric property id. The three ids that sit next to it in the GA4 UI are
+each rejected by name rather than passed on to a confusing API error: `G-XXXXXXXXXX` is the
+measurement id (the web tag), `GTM-XXXXXXX` is a Tag Manager container, and `UA-XXXXX-Y` is a
+Universal Analytics property, which stopped collecting data in 2023 and is not reachable
+through the GA4 API at all.
 
 Dates accept `YYYY-MM-DD`, `today`, `yesterday` or `NdaysAgo`.
 
@@ -71,7 +74,10 @@ $CLI analytics check --property PROPERTY_ID --metrics sessions --dimensions sess
 `sessionDefaultChannelGroup` is correct. `sessionDefaultChannelGrouping` does not exist; it is
 widely copied from third-party skill packs and fails every time.
 
-`check` reports a verdict for every field requested, including the incompatible ones.
+`check` answers about the fields **you named** and nothing else. The API itself judges every
+field in the property against your request — around 490 of them, ~30KB — and a verdict drawn
+from that is about fields you never asked for. Add `--suggest` when you do want that list,
+which is the honest question it answers: *what else could I add to this request?*
 
 ## Response shapes (validated)
 
@@ -98,6 +104,12 @@ mean different things and are reported separately:
 `metadata`: `{"property","dimensions":[...],"metrics":[...]}` — names only unless `--full`.
 
 `check`: `{"property","dimensions":[{"name","compatibility"}],"metrics":[...],"compatible","incompatible":[...]}`
+— one entry per field you named. `compatibility` is `COMPATIBLE`, `INCOMPATIBLE`, or
+`UNKNOWN_FIELD` when the property does not carry that name at all. With `--suggest`, adds
+`"could_add":{"dimensions":[...],"metrics":[...]}`.
+
+A name that is not a GA4 field at all fails earlier, at the API, and the error carries a
+correction: `Did you mean browserVersion? Field zzz is not a valid dimension.`
 
 ## Limits
 

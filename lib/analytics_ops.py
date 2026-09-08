@@ -55,8 +55,22 @@ def _property_path(property_id: str) -> str:
     if pid.startswith("properties/"):
         pid = pid.split("/", 1)[1]
     if not pid.isdigit():
+        # The ids people reach for instead. All three are printed next to the
+        # property id in the GA4 UI, and none of them is one, so saying which
+        # mistake was made beats a generic "invalid".
+        upper = pid.upper()
+        if upper.startswith("G-"):
+            wrong = "a GA4 measurement id (the web tag), not a property id"
+        elif upper.startswith("GTM-"):
+            wrong = "a Google Tag Manager container id, not a GA4 property id"
+        elif upper.startswith("UA-"):
+            wrong = "a Universal Analytics property id; UA properties stopped "
+            wrong += "collecting data in 2023 and are not reachable through the GA4 API"
+        else:
+            wrong = ""
         raise ValidationError(
-            f"Invalid GA4 property id: {property_id!r}.",
+            f"Invalid GA4 property id: {property_id!r}"
+            + (f" -- that is {wrong}." if wrong else "."),
             suggestion="Use the numeric property id, e.g. 123456789. "
             "List the ones you can reach with: gw analytics properties",
         )

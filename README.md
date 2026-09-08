@@ -59,6 +59,11 @@ following the same rules (auth, JSON output, destructive-op confirmation).
 - **Sheets** — read, write, append, list.
 - **Forms** — read metadata + responses, create and edit forms.
 - **Tasks** — create, list, complete.
+- **Analytics (GA4)** — properties, reports, realtime, metadata search, and a
+  compatibility check that settles a field name before you spend a call. Read-only,
+  and an **opt-in scope**.
+- **Search Console** — sites, search analytics (queries, pages, CTR, position),
+  sitemaps, URL inspection. Read-only by construction, and an **opt-in scope**.
 - **`gw api` — any Google API.** A generic Discovery invoker reaches services with
   no curated group (Slides, People, Chat, Admin SDK, Classroom, Apps Script, …) and
   any uncovered method, with schema introspection, dry-run validation, NDJSON
@@ -84,7 +89,8 @@ is baked in.
 
 - **Skills:** `gw-setup` (onboarding), a `google-workspace` router, and one per
   service — `gw-gmail`, `gw-calendar`, `gw-drive`, `gw-docs`, `gw-sheets`,
-  `gw-forms`, `gw-tasks`, `gw-inbox` — plus `gw-api` for the generic invoker.
+  `gw-forms`, `gw-tasks`, `gw-inbox`, `gw-analytics`, `gw-searchconsole` — plus
+  `gw-api` for the generic invoker.
 - **Agent:** `cold-outreach` — send outreach from a contact sheet or the CRM, scan
   for replies, and track stats (draft-first; the CRM path needs the optional
   knowledge base).

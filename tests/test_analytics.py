@@ -419,3 +419,29 @@ class TestCheckCompatibility:
             out = analytics_ops.check_compatibility(property_id="123", dimensions="date")
         assert out["compatible"] is True
         assert out["incompatible"] == []
+
+
+class TestPropertyIdConfusions:
+    """The measurement id, the GTM container id and the property id all sit next
+    to each other in the GA4 UI. Naming the mistake beats a generic rejection."""
+
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            ("G-ABC1234567", "measurement id"),
+            ("GTM-ABC1234", "Tag Manager"),
+            ("UA-12345-1", "Universal Analytics"),
+        ],
+    )
+    def test_names_the_confusion(self, value, expected):
+        with pytest.raises(ValidationError) as err:
+            analytics_ops._property_path(value)
+        assert expected in str(err.value)
+
+    def test_plain_garbage_still_rejected(self):
+        with pytest.raises(ValidationError):
+            analytics_ops._property_path("not-an-id")
+
+    def test_valid_forms_still_accepted(self):
+        assert analytics_ops._property_path("123") == "properties/123"
+        assert analytics_ops._property_path("properties/123") == "properties/123"
