@@ -162,3 +162,28 @@ class TestScrubDoesNotEatUrls:
     def test_bare_base64_blob_is_still_redacted(self):
         from output import _scrub_credentials
         assert "[REDACTED]" in _scrub_credentials("token " + "A" * 50 + "==")
+
+
+class TestFindDataArrayFallsBackToTheOnlyArray:
+    """--output csv used to hand back JSON for every command whose collection is
+    not on the hardcoded key list -- analytics properties, searchconsole sites,
+    sitemaps -- without saying it had ignored the flag."""
+
+    def test_single_unlisted_array_is_found(self):
+        from output import _find_data_array
+        data = {"properties": [{"property_id": "1", "display_name": "x"}], "count": 1}
+        assert _find_data_array(data) == [{"property_id": "1", "display_name": "x"}]
+
+    def test_known_key_still_wins_over_a_later_array(self):
+        from output import _find_data_array
+        data = {"other": [{"a": 1}], "rows": [{"b": 2}]}
+        assert _find_data_array(data) == [{"b": 2}]
+
+    def test_two_candidate_arrays_stay_ambiguous(self):
+        from output import _find_data_array
+        data = {"dimensions": [{"name": "date"}], "metrics": [{"name": "sessions"}]}
+        assert _find_data_array(data) is None
+
+    def test_no_array_is_still_none(self):
+        from output import _find_data_array
+        assert _find_data_array({"site": "x", "count": 0}) is None

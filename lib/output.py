@@ -250,6 +250,17 @@ def _find_data_array(data: object) -> list[dict] | None:
         val = data.get(key)
         if isinstance(val, list) and val and isinstance(val[0], (dict, list)):
             return val
+    # Nothing on the known-key list. Rather than silently handing back JSON to
+    # someone who asked for csv -- which is what every command whose collection
+    # is named something else used to get -- take the array when there is
+    # exactly one candidate and so no guess to make. Two or more (check returns
+    # both dimensions and metrics) stays ambiguous and falls back to JSON.
+    candidates = [
+        val for val in data.values()
+        if isinstance(val, list) and val and isinstance(val[0], (dict, list))
+    ]
+    if len(candidates) == 1:
+        return candidates[0]
     return None
 
 
