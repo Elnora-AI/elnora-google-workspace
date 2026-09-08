@@ -136,3 +136,79 @@ def test_validate_email_invalid():
         validate_email("@domain.com")
     with pytest.raises(ValidationError):
         validate_email("user@")
+
+
+class TestScrubDoesNotEatUrls:
+    """The generic base64 arm of the credential pattern also matches an ordinary
+    URL path, which redacted the most useful part of a Google API error: the
+    link naming the valid field names."""
+
+    def test_documentation_url_survives(self):
+        from output import _scrub_credentials
+        url = "https://developers.google.com/analytics/devguides/reporting/data/v1/api-schema"
+        assert _scrub_credentials(f"see {url} for names") == f"see {url} for names"
+
+    def test_api_key_in_a_url_is_still_redacted(self):
+        from output import _scrub_credentials
+        out = _scrub_credentials("https://x.com/v1?key=AIzaSyA1234567890123456789012345678901234")
+        assert "AIzaSyA1234567890123456789012345678901234" not in out
+        assert "[REDACTED]" in out
+
+    def test_oauth_token_in_a_url_is_still_redacted(self):
+        from output import _scrub_credentials
+        out = _scrub_credentials("https://x.com/cb#access_token=ya29." + "a" * 60)
+        assert "ya29." + "a" * 60 not in out
+
+    def test_bare_base64_blob_is_still_redacted(self):
+        from output import _scrub_credentials
+        assert "[REDACTED]" in _scrub_credentials("token " + "A" * 50 + "==")
+
+
+class TestFindDataArrayFallsBackToTheOnlyArray:
+    """--output csv used to hand back JSON for every command whose collection is
+    not on the hardcoded key list -- analytics properties, searchconsole sites,
+    sitemaps -- without saying it had ignored the flag."""
+
+    def test_single_unlisted_array_is_found(self):
+        from output import _find_data_array
+        data = {"properties": [{"property_id": "1", "display_name": "x"}], "count": 1}
+        assert _find_data_array(data) == [{"property_id": "1", "display_name": "x"}]
+
+    def test_known_key_still_wins_over_a_later_array(self):
+        from output import _find_data_array
+        data = {"other": [{"a": 1}], "rows": [{"b": 2}]}
+        assert _find_data_array(data) == [{"b": 2}]
+
+    def test_two_candidate_arrays_stay_ambiguous(self):
+        from output import _find_data_array
+        data = {"dimensions": [{"name": "date"}], "metrics": [{"name": "sessions"}]}
+        assert _find_data_array(data) is None
+
+    def test_no_array_is_still_none(self):
+        from output import _find_data_array
+        assert _find_data_array({"site": "x", "count": 0}) is None
+
+
+class TestScrubUrlComponents:
+    """Sparing whole URLs from the generic pattern would let a credential ride
+    through in a path segment, so it is applied per URL component instead."""
+
+    def test_blob_in_a_path_segment_is_redacted(self):
+        from output import _scrub_credentials
+        blob = "A" * 50
+        out = _scrub_credentials(f"https://x.com/files/{blob}/download")
+        assert blob not in out
+        assert "[REDACTED]" in out
+        assert out.startswith("https://x.com/files/")
+
+    def test_blob_in_an_unnamed_query_value_is_redacted(self):
+        from output import _scrub_credentials
+        blob = "B" * 44
+        out = _scrub_credentials(f"https://x.com/v1?t={blob}&page=2")
+        assert blob not in out
+        assert "page=2" in out
+
+    def test_long_doc_path_still_survives(self):
+        from output import _scrub_credentials
+        url = "https://developers.google.com/analytics/devguides/reporting/data/v1/api-schema"
+        assert _scrub_credentials(url) == url

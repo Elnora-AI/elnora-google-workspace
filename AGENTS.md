@@ -35,6 +35,10 @@ steps — use those.
   `GW_CLIENT_ID`/`GW_CLIENT_SECRET`, or `--client-secret-file`.
 - Check state with `gw auth status`; list accounts with `gw auth list`.
 - Select an account per command with `--account <name>`.
+- **Opt-in scopes.** `analytics` and `searchconsole` are not in a default login. Add one
+  with `gw auth login --add-scopes analytics,searchconsole` — **never** `--scopes`, which
+  replaces the token and drops everything it does not name. `gw auth status` lists what
+  the account currently holds.
 
 ## Safety rules (must follow)
 

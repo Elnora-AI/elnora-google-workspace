@@ -95,16 +95,41 @@ READONLY_SERVICE_SCOPES: dict[str, list[str]] = {
     "drive": ["https://www.googleapis.com/auth/drive.readonly"],
 }
 
+# Opt-in services. Named explicitly with --scopes, never included in a default
+# login, so an existing token's consent screen does not widen and no re-consent
+# is forced on anyone who does not want these APIs.
+#
+# Both entries are read-only in the full table as well as the readonly one. gw
+# reads Analytics and Search Console; it does not write to them, and asking for
+# a write scope we never exercise would be exactly the scope-widening the
+# SAFETY guidance warns against. Add a write scope here when a command needs it,
+# not before.
+OPT_IN_SERVICE_SCOPES: dict[str, list[str]] = {
+    "analytics": ["https://www.googleapis.com/auth/analytics.readonly"],
+    "searchconsole": ["https://www.googleapis.com/auth/webmasters.readonly"],
+}
+
+OPT_IN_READONLY_SERVICE_SCOPES: dict[str, list[str]] = dict(OPT_IN_SERVICE_SCOPES)
+
+# Every service name --scopes accepts, default and opt-in together.
+ALL_SERVICE_NAMES = list(SERVICE_SCOPES) + list(OPT_IN_SERVICE_SCOPES)
+
 
 def scopes_for(services: list[str] | None = None, *, readonly: bool = False) -> list[str]:
-    """Return the scope list for the given service names (all if None)."""
-    table = READONLY_SERVICE_SCOPES if readonly else SERVICE_SCOPES
-    names = list(table) if not services else services
+    """Return the scope list for the given service names.
+
+    With no services named, returns the default set only: opt-in services must
+    be asked for by name.
+    """
+    default = READONLY_SERVICE_SCOPES if readonly else SERVICE_SCOPES
+    opt_in = OPT_IN_READONLY_SERVICE_SCOPES if readonly else OPT_IN_SERVICE_SCOPES
+    table = {**default, **opt_in}
+    names = list(default) if not services else services
     unknown = [n for n in names if n not in table]
     if unknown:
         raise ValueError(
             f"Unknown service(s): {', '.join(unknown)}. "
-            f"Valid: {', '.join(SERVICE_SCOPES)}"
+            f"Valid: {', '.join(ALL_SERVICE_NAMES)}"
         )
     out: list[str] = []
     for n in names:

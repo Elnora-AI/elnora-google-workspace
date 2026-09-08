@@ -1,10 +1,13 @@
 ---
 name: google-workspace
 description: >
-  Google Workspace CLI — routes to service-specific skills for Gmail, Sheets, Calendar, Tasks, Docs, Forms.
+  Google Workspace CLI — routes to service-specific skills for Gmail, Sheets, Calendar, Tasks,
+  Docs, Forms, Drive, Analytics and Search Console.
   TRIGGERS: "gmail", "email", "send email", "inbox", "calendar", "meeting", "sheets",
   "spreadsheet", "tasks", "google docs", "gdoc", "outreach", "google form", "form responses",
-  "create google form", "feedback form", "survey form"
+  "create google form", "feedback form", "survey form", "google analytics", "GA4", "traffic",
+  "sessions", "visitors", "search console", "GSC", "what are we ranking for", "search queries",
+  "impressions", "clicks", "SEO"
 ---
 
 # Google Workspace CLI
@@ -21,6 +24,8 @@ Routes to service-specific skills. Use the right skill for your task:
 | Read/create/edit documents | **gw-docs** |
 | Create / edit Google Forms, read metadata and responses | **gw-forms** |
 | List, upload, download, share, organize Drive files & folders | **gw-drive** |
+| Read GA4 traffic, acquisition, pages, conversions, realtime | **gw-analytics** |
+| Read Search Console queries, pages, CTR, position, indexing, sitemaps | **gw-searchconsole** |
 | Call ANY Google API method (Discovery), inspect schemas | **gw-api** |
 
 **Attachments are supported** on every sending verb: `send`, `draft`, `draft-reply`, `draft-reply-all`, `reply`, `reply-all`, `update-draft`, and `attach-to-draft`. Use `--attach /path/to/file` and repeat for multiple files. See **gw-gmail** skill for examples.
@@ -28,6 +33,18 @@ Routes to service-specific skills. Use the right skill for your task:
 **Draft modification is supported.** Full lifecycle: `list-drafts` → `get-draft` → `update-draft` / `attach-to-draft` → `send-draft` or `delete-draft`. See **gw-gmail**.
 
 **Reply auto-preserves original Cc** on `reply` and `draft-reply`. Reply-all expands Cc to include original To recipients. See **gw-gmail** for the `--cc` / `--no-cc` override semantics.
+
+## Opt-in scopes
+
+`gw-analytics` and `gw-searchconsole` need scopes a default login does **not** grant. Add them
+without losing the rest of the token:
+
+```bash
+$CLI auth login --add-scopes analytics,searchconsole
+```
+
+Use `--add-scopes`, never `--scopes`: a login **replaces** the token, so `--scopes analytics`
+would drop Gmail, Calendar, Drive, Sheets, Docs, Tasks and Forms. Both scopes are read-only.
 
 ## UI Verification
 

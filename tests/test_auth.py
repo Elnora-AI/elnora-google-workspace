@@ -190,6 +190,36 @@ class TestScopes:
     def test_default_is_full_set(self):
         assert auth.scopes_for() == auth.SCOPES
 
+    def test_opt_in_services_absent_from_default(self):
+        """A default login must not widen an existing token's consent screen."""
+        for scope in auth.scopes_for():
+            assert "analytics" not in scope
+            assert "webmasters" not in scope
+
+    def test_opt_in_services_reachable_by_name(self):
+        assert auth.scopes_for(["analytics"]) == [
+            "https://www.googleapis.com/auth/analytics.readonly"
+        ]
+        assert auth.scopes_for(["searchconsole"]) == [
+            "https://www.googleapis.com/auth/webmasters.readonly"
+        ]
+
+    def test_opt_in_services_are_read_only_in_both_tables(self):
+        """gw reads these APIs and never writes to them."""
+        for name in auth.OPT_IN_SERVICE_SCOPES:
+            assert auth.scopes_for([name]) == auth.scopes_for([name], readonly=True)
+
+    def test_opt_in_mixes_with_default_services(self):
+        scopes = auth.scopes_for(["gmail", "analytics"], readonly=True)
+        assert scopes == [
+            "https://www.googleapis.com/auth/gmail.readonly",
+            "https://www.googleapis.com/auth/analytics.readonly",
+        ]
+
+    def test_unknown_service_error_lists_opt_in_names(self):
+        with pytest.raises(ValueError, match="analytics"):
+            auth.scopes_for(["nope"])
+
 
 # ---------------------------------------------------------------------------
 # Token storage backends
