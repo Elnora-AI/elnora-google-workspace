@@ -137,8 +137,13 @@ function listGitFiles() {
 // own and they still say whose account this is. 123456789 is the documented
 // placeholder and stays allowed.
 const PLACEHOLDER_PROPERTY = /^123456789\d?$/;
+// Anchored, and compared against the whole captured host rather than tested with
+// a lookahead inside the detector. A lookahead allowlist inside an unanchored
+// pattern is the shape that let a real domain pass by carrying the placeholder
+// as a prefix, and it is harder to read than an equality check.
+const PLACEHOLDER_HOST = /^(example|test|acme|globex)\.(com|org|net|ai)$/i;
 const ANALYTICS_BANNED = [
-  { name: "search console property", re: /\bsc-domain:(?!example\.com(?![\w.-]))[\w.-]+\.\w{2,}/i },
+  { name: "search console property", re: /\bsc-domain:([\w.-]+\.\w{2,})/i, hostGroup: 1 },
   { name: "ga4 property id", re: /\b(?:propert(?:y|ies)[\/ =:]+)(\d{9,12})\b/i, idGroup: 1 },
 ];
 
@@ -175,6 +180,7 @@ if (commitsFlag !== -1) {
         if (!m) continue;
         if (b.homeGroup && PLACEHOLDER_HOME.test(m[b.homeGroup])) continue;
         if (b.idGroup && PLACEHOLDER_PROPERTY.test(m[b.idGroup])) continue;
+        if (b.hostGroup && PLACEHOLDER_HOST.test(m[b.hostGroup])) continue;
         violations.push(`commit ${short}  [${b.name}]  ${line.trim().slice(0, 120)}`);
       }
       for (const em of line.match(COMPANY_EMAIL) || []) {
@@ -208,6 +214,7 @@ for (const path of files) {
       if (!m) continue;
       if (b.homeGroup && PLACEHOLDER_HOME.test(m[b.homeGroup])) continue;
       if (b.idGroup && PLACEHOLDER_PROPERTY.test(m[b.idGroup])) continue;
+      if (b.hostGroup && PLACEHOLDER_HOST.test(m[b.hostGroup])) continue;
       violations.push(`${rel}:${i + 1}  [${b.name}]  ${line.trim().slice(0, 120)}`);
     }
 
