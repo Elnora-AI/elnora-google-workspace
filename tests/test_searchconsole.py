@@ -235,3 +235,18 @@ class TestWriteSurfaceIsAbsent:
                 continue
             for verb in ("add", "create", "delete", "remove", "submit", "update", "put"):
                 assert not name.lower().startswith(verb), f"write-shaped name: {name}"
+
+
+class TestDimensionCasingIsCanonical:
+    def test_uppercase_input_returns_canonical_row_keys(self):
+        """Row keys must not depend on how the caller spelled the request."""
+        svc = MagicMock()
+        svc.searchanalytics().query().execute.return_value = {
+            "rows": [{"keys": ["elnora"], "clicks": 3, "impressions": 9,
+                      "ctr": 0.33, "position": 1.5}]
+        }
+        with patch("searchconsole_ops.build_service", return_value=svc):
+            out = searchconsole_ops.query(site="sc-domain:x.com", dimensions="QUERY")
+        assert out["dimensions"] == ["query"]
+        assert "query" in out["rows"][0]
+        assert "QUERY" not in out["rows"][0]

@@ -88,14 +88,15 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @click.option("--property", "property_id", required=True, help="GA4 property id (numeric)")
     @click.option("--metrics", default="sessions", help="Comma-separated metrics")
     @click.option("--dimensions", default=None, help="Comma-separated dimensions")
+    @click.option("--suggest", is_flag=True, help="Also list the other fields that could be added to this request")
     @account_option
     @compact_option
-    def analytics_check(property_id, metrics, dimensions, account, compact):
+    def analytics_check(property_id, metrics, dimensions, suggest, account, compact):
         """Check whether a dimension/metric combination is queryable."""
         import analytics_ops
         with _handle_errors(compact):
             result = analytics_ops.check_compatibility(
                 property_id=property_id, metrics=metrics,
-                dimensions=dimensions, account=account,
+                dimensions=dimensions, suggest=suggest, account=account,
             )
             output_success(result, compact=compact)

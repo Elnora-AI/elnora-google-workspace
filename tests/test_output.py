@@ -136,3 +136,29 @@ def test_validate_email_invalid():
         validate_email("@domain.com")
     with pytest.raises(ValidationError):
         validate_email("user@")
+
+
+class TestScrubDoesNotEatUrls:
+    """The generic base64 arm of the credential pattern also matches an ordinary
+    URL path, which redacted the most useful part of a Google API error: the
+    link naming the valid field names."""
+
+    def test_documentation_url_survives(self):
+        from output import _scrub_credentials
+        url = "https://developers.google.com/analytics/devguides/reporting/data/v1/api-schema"
+        assert _scrub_credentials(f"see {url} for names") == f"see {url} for names"
+
+    def test_api_key_in_a_url_is_still_redacted(self):
+        from output import _scrub_credentials
+        out = _scrub_credentials("https://x.com/v1?key=AIzaSyA1234567890123456789012345678901234")
+        assert "AIzaSyA1234567890123456789012345678901234" not in out
+        assert "[REDACTED]" in out
+
+    def test_oauth_token_in_a_url_is_still_redacted(self):
+        from output import _scrub_credentials
+        out = _scrub_credentials("https://x.com/cb#access_token=ya29." + "a" * 60)
+        assert "ya29." + "a" * 60 not in out
+
+    def test_bare_base64_blob_is_still_redacted(self):
+        from output import _scrub_credentials
+        assert "[REDACTED]" in _scrub_credentials("token " + "A" * 50 + "==")

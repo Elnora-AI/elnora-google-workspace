@@ -394,12 +394,21 @@ def check_compatibility(
     property_id: str,
     metrics: str = "sessions",
     dimensions: str | None = None,
+    suggest: bool = False,
     account: str | None = None,
 ) -> dict:
     """Ask GA4 whether a dimension/metric combination is queryable.
 
     Cheaper than running the report and reading the 400, and it names the
     fields that would have to be dropped.
+
+    The API answers a wider question than the one asked: it returns every
+    dimension and metric in the property, each judged against this request, so
+    the caller can see what else could be added. That is ~490 fields and ~30KB,
+    and the verdict buried in it is about fields nobody asked about. The reply
+    here is narrowed to the fields the caller actually named, which is both the
+    honest answer to "can I query this?" and two orders of magnitude cheaper.
+    Pass suggest=True for the compatible fields that could be added.
     """
     # compatibilityFilter is deliberately NOT set. The discovery doc defines it
     # as "Filters the dimensions and metrics in the response to just this
@@ -420,22 +429,44 @@ def check_compatibility(
         handle_http_error(e, "analytics check")
         raise  # unreachable
 
-    def summarise(items, key):
-        out = []
+    def verdicts(items, key) -> dict[str, str]:
+        out: dict[str, str] = {}
         for item in items or []:
-            field = (item.get(key) or {}).get("apiName")
-            out.append({"name": field, "compatibility": item.get("compatibility")})
+            name = (item.get(key) or {}).get("apiName")
+            if name:
+                out[name] = item.get("compatibility")
         return out
 
-    dims = summarise(response.get("dimensionCompatibilities"), "dimensionMetadata")
-    mets = summarise(response.get("metricCompatibilities"), "metricMetadata")
-    incompatible = [
-        f["name"] for f in dims + mets if f.get("compatibility") != "COMPATIBLE"
-    ]
-    return {
+    all_dims = verdicts(response.get("dimensionCompatibilities"), "dimensionMetadata")
+    all_mets = verdicts(response.get("metricCompatibilities"), "metricMetadata")
+
+    asked_metrics = _split(metrics)
+
+    def narrow(names: list[str], table: dict[str, str]) -> list[dict]:
+        return [{"name": n, "compatibility": table.get(n, "UNKNOWN_FIELD")} for n in names]
+
+    dims = narrow(dimension_names, all_dims)
+    mets = narrow(asked_metrics, all_mets)
+    incompatible = [f["name"] for f in dims + mets if f["compatibility"] != "COMPATIBLE"]
+
+    out: dict = {
         "property": prop,
         "dimensions": dims,
         "metrics": mets,
         "compatible": not incompatible,
         "incompatible": incompatible,
     }
+    if suggest:
+        # Everything else the property offers that would still work alongside
+        # this request. Names only: the point is to pick one, not to read them.
+        out["could_add"] = {
+            "dimensions": sorted(
+                n for n, v in all_dims.items()
+                if v == "COMPATIBLE" and n not in dimension_names
+            ),
+            "metrics": sorted(
+                n for n, v in all_mets.items()
+                if v == "COMPATIBLE" and n not in asked_metrics
+            ),
+        }
+    return out

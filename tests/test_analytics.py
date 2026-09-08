@@ -338,6 +338,73 @@ class TestCheckCompatibility:
         assert out["compatible"] is False
         assert out["incompatible"] == ["transactionId"]
 
+    def test_narrows_to_the_fields_the_caller_asked_about(self):
+        """The API judges EVERY field in the property against the request, so a
+        raw pass-through answers about ~490 fields nobody asked about -- and
+        reports incompatible for unrelated ones, which is a wrong answer to
+        'can I query this?' as well as ~30KB of it."""
+        svc = MagicMock()
+        svc.properties().checkCompatibility().execute.return_value = {
+            "dimensionCompatibilities": [
+                {"dimensionMetadata": {"apiName": "date"}, "compatibility": "COMPATIBLE"},
+                {"dimensionMetadata": {"apiName": "cohortNthDay"}, "compatibility": "INCOMPATIBLE"},
+                {"dimensionMetadata": {"apiName": "unrelatedOne"}, "compatibility": "INCOMPATIBLE"},
+            ],
+            "metricCompatibilities": [
+                {"metricMetadata": {"apiName": "sessions"}, "compatibility": "COMPATIBLE"},
+                {"metricMetadata": {"apiName": "advertiserAdCost"}, "compatibility": "INCOMPATIBLE"},
+            ],
+        }
+        with patch("analytics_ops.build_service", return_value=svc):
+            out = analytics_ops.check_compatibility(
+                property_id="123", metrics="sessions", dimensions="date"
+            )
+        assert [d["name"] for d in out["dimensions"]] == ["date"]
+        assert [m["name"] for m in out["metrics"]] == ["sessions"]
+        assert out["compatible"] is True
+        assert out["incompatible"] == []
+        assert "could_add" not in out
+
+    def test_asked_for_field_missing_from_response_is_unknown(self):
+        """A name the property does not carry must not read as compatible."""
+        svc = MagicMock()
+        svc.properties().checkCompatibility().execute.return_value = {
+            "dimensionCompatibilities": [
+                {"dimensionMetadata": {"apiName": "date"}, "compatibility": "COMPATIBLE"}
+            ],
+            "metricCompatibilities": [
+                {"metricMetadata": {"apiName": "sessions"}, "compatibility": "COMPATIBLE"}
+            ],
+        }
+        with patch("analytics_ops.build_service", return_value=svc):
+            out = analytics_ops.check_compatibility(
+                property_id="123", metrics="sessions", dimensions="date,notAThing"
+            )
+        assert {"name": "notAThing", "compatibility": "UNKNOWN_FIELD"} in out["dimensions"]
+        assert out["compatible"] is False
+        assert out["incompatible"] == ["notAThing"]
+
+    def test_suggest_lists_other_compatible_fields_only(self):
+        svc = MagicMock()
+        svc.properties().checkCompatibility().execute.return_value = {
+            "dimensionCompatibilities": [
+                {"dimensionMetadata": {"apiName": "date"}, "compatibility": "COMPATIBLE"},
+                {"dimensionMetadata": {"apiName": "country"}, "compatibility": "COMPATIBLE"},
+                {"dimensionMetadata": {"apiName": "cohortNthDay"}, "compatibility": "INCOMPATIBLE"},
+            ],
+            "metricCompatibilities": [
+                {"metricMetadata": {"apiName": "sessions"}, "compatibility": "COMPATIBLE"},
+                {"metricMetadata": {"apiName": "activeUsers"}, "compatibility": "COMPATIBLE"},
+            ],
+        }
+        with patch("analytics_ops.build_service", return_value=svc):
+            out = analytics_ops.check_compatibility(
+                property_id="123", metrics="sessions", dimensions="date", suggest=True
+            )
+        # Only compatible, and never the fields already requested.
+        assert out["could_add"]["dimensions"] == ["country"]
+        assert out["could_add"]["metrics"] == ["activeUsers"]
+
     def test_all_compatible(self):
         svc = MagicMock()
         svc.properties().checkCompatibility().execute.return_value = {

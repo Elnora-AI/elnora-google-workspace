@@ -179,6 +179,11 @@ def query(
             f"Unknown dimension(s): {', '.join(unknown)}.",
             suggestion=f"Valid: {', '.join(VALID_DIMENSIONS)}",
         )
+    # Input casing is accepted freely, but the row keys a caller reads back must
+    # not depend on how they typed the request: --dimensions QUERY used to return
+    # rows keyed "QUERY", so code written against row["query"] broke on spelling.
+    _canonical = {d.lower(): d for d in VALID_DIMENSIONS}
+    dimension_names = [_canonical[d.lower()] for d in dimension_names]
     if _enum(search_type) not in [_enum(s) for s in VALID_SEARCH_TYPES]:
         raise ValidationError(
             f"Unknown search type: {search_type!r}.",
