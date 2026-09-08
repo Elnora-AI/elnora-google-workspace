@@ -46,6 +46,48 @@ $CLI api call gmail users.messages.list --params '{"userId":"me","maxResults":5}
 
 `--dry-run` prints `{service, method, httpMethod, uri_template, params, body, required_scopes, destructive}` and catches unknown/missing-required params before any network call.
 
+## The discovery document is the contract, not the published examples
+
+A vendor's documentation shows what usually works. The discovery document defines what is
+guaranteed. When they disagree, the published example is the one that can change.
+
+This matters most for **enums**, which are the cheapest thing to get wrong and the hardest to
+debug, because a rejected enum reports as a generic 400 rather than as "that value is not in the
+list". Fetch the document and read the enum yourself:
+
+```bash
+# Any Google API, no auth, no gw needed
+curl -s "https://<api>.googleapis.com/\$discovery/rest?version=<version>" -o /tmp/d.json
+
+# The enum for one request field
+python3 -c "import json;d=json.load(open('/tmp/d.json'));print(d['schemas']['<RequestSchema>']['properties']['<field>']['enum'])"
+```
+
+Two things this catches that reading the docs does not:
+
+**Casing.** Published examples routinely use lower camel case for values the discovery document
+spells in upper snake case. The API often accepts both, but only one of those is promised. Send
+the documented enum spelling and accept either from your own callers.
+
+**Narrower sub-enums.** The same concept can have a wider enum in one field than another. A
+dimension you may group by is not necessarily a dimension you may filter on, and the two enums
+sit in different schemas. Comparing them is how you find that out before a user does.
+
+`$CLI schema <service>.<resource>.<method>` surfaces the same material through gw. Pass
+`--depth 0 --compact` for parameters and required scopes at a fraction of the size; the default
+depth expands referenced schemas and can return tens of kilobytes for one method.
+
+## A validator answers the question it was given
+
+Before trusting any `check`, `validate` or `compatibility` endpoint, read its request schema for
+a filter field. Several of them accept a parameter that narrows the response to one class of
+result, and passing the value you are hoping for makes the endpoint incapable of telling you
+otherwise. The verdict then describes what survived the filter rather than what you asked about.
+
+The tell is response size. An answer about the handful of fields you named should be small. If a
+validator returns tens of kilobytes, it is answering a wider question than you asked, and the
+part you care about is buried in it.
+
 ## Commands
 
 ```bash
