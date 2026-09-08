@@ -38,7 +38,7 @@ from output import (
     set_output_format,
 )
 
-__version__ = "1.0.0"
+__version__ = "1.3.0"  # x-release-please-version
 
 
 # ---------------------------------------------------------------------------

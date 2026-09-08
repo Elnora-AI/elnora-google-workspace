@@ -428,3 +428,51 @@ class TestSecretRedaction:
     def test_normal_text_unchanged(self):
         msg = "File not found: /tmp/test.csv"
         assert _scrub_credentials(msg) == msg
+
+
+# ---------------------------------------------------------------------------
+# Version, single source of truth
+# ---------------------------------------------------------------------------
+
+class TestVersionMatchesManifests:
+    """`gw --version` drifted to 1.0.0 while the plugin shipped 1.3.0.
+
+    release-please rewrites the two manifests through extra-files and never
+    touched cli/gw.py, so the CLI misreported itself to anyone who asked. These
+    pin all three together and check the annotation release-please needs is
+    still on the line.
+    """
+
+    def _root(self):
+        from pathlib import Path
+        return Path(__file__).resolve().parent.parent
+
+    def _cli_version(self):
+        import re
+        text = (self._root() / "cli" / "gw.py").read_text()
+        m = re.search(r'__version__\s*=\s*"([^"]+)"', text)
+        assert m, "__version__ not found in cli/gw.py"
+        return m.group(1)
+
+    def _json(self, *parts):
+        import json
+        return json.loads((self._root().joinpath(*parts)).read_text())
+
+    def test_cli_version_matches_plugin_manifest(self):
+        assert self._cli_version() == self._json(".claude-plugin", "plugin.json")["version"]
+
+    def test_cli_version_matches_marketplace_manifest(self):
+        marketplace = self._json(".claude-plugin", "marketplace.json")
+        assert self._cli_version() == marketplace["plugins"][0]["version"]
+
+    def test_release_please_is_told_to_update_the_cli(self):
+        """Without this the three go out of step again on the next release."""
+        cfg = self._json("release-please-config.json")
+        extra = cfg["packages"]["."]["extra-files"]
+        paths = [e if isinstance(e, str) else e.get("path") for e in extra]
+        assert "cli/gw.py" in paths
+
+    def test_version_line_keeps_the_release_please_annotation(self):
+        text = (self._root() / "cli" / "gw.py").read_text()
+        line = next(ln for ln in text.splitlines() if ln.startswith("__version__"))
+        assert "x-release-please-version" in line
