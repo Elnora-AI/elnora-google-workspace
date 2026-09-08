@@ -103,6 +103,7 @@ def perform_login(
     account: str | None = None,
     email: str | None = None,
     scopes: str | None = None,
+    add_scopes: str | None = None,
     readonly: bool = False,
     client_secret_file: str | None = None,
     port: int = 0,
@@ -113,18 +114,42 @@ def perform_login(
     """Run the OAuth flow and persist the token. Returns a result payload."""
     import auth
 
+    if scopes and add_scopes:
+        raise ValidationError(
+            "--scopes and --add-scopes are mutually exclusive.",
+        )
+
     cfg = auth.load_accounts_config()
     default = cfg.get("default")
     name = account or (default if isinstance(default, str) else None) or auth.DEFAULT_ACCOUNT
     auth._validate_account_name(name)
 
+    granted = list((auth.load_token_data(name) or {}).get("scopes") or [])
+
     services = None
     if scopes:
         services = [s.strip() for s in scopes.split(",") if s.strip()]
+    elif add_scopes:
+        services = [s.strip() for s in add_scopes.split(",") if s.strip()]
     try:
         scope_list = auth.scopes_for(services, readonly=readonly)
     except ValueError as err:
         raise ValidationError(str(err)) from err
+
+    # A login REPLACES the token, so a narrow --scopes silently drops every
+    # scope the account already had. --add-scopes keeps what is there and adds
+    # to it; a bare --scopes that would lose something says so first.
+    if add_scopes:
+        scope_list = granted + [s for s in scope_list if s not in granted]
+    elif scopes and granted:
+        dropped = [s for s in granted if s not in scope_list]
+        if dropped:
+            output_warning(
+                "This login replaces the token and drops "
+                f"{len(dropped)} scope(s) the account currently has: "
+                f"{', '.join(dropped)}. Use --add-scopes to keep them.",
+                code="SCOPES_NARROWED",
+            )
 
     client_config, client_source = _resolve_oauth_client(client_secret_file)
 
@@ -428,7 +453,8 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @auth.command()
     @account_option
     @click.option("--email", default=None, help="Login hint (pre-selects the Google account)")
-    @click.option("--scopes", default=None, help="Comma-separated services to authorize (gmail,calendar,sheets,docs,tasks,forms,drive; opt-in: analytics,searchconsole). Default: all except the opt-in ones.")
+    @click.option("--scopes", default=None, help="Comma-separated services to authorize, REPLACING the token's current scopes (gmail,calendar,sheets,docs,tasks,forms,drive; opt-in: analytics,searchconsole). Default: all except the opt-in ones.")
+    @click.option("--add-scopes", "add_scopes", default=None, help="Services to ADD to the scopes this account already has. Use this to authorize one more API without losing the rest.")
     @click.option("--readonly", is_flag=True, help="Request read-only scope variants")
     @click.option("--client-secret-file", type=click.Path(exists=True, dir_okay=False), default=None, help="Path to a Google OAuth client_secret.json")
     @click.option("--port", type=int, default=0, help="Localhost callback port (default: random free port)")
@@ -436,13 +462,14 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @click.option("--keyring", "keyring_opt", is_flag=True, help="Store the token in the OS keyring (default: file; legacy file accounts are not auto-migrated)")
     @click.option("--no-keyring", is_flag=True, help="Store the token as a file even if OS keyring is available")
     @compact_option
-    def login(account, email, scopes, readonly, client_secret_file, port, no_browser, keyring_opt, no_keyring, compact):
+    def login(account, email, scopes, add_scopes, readonly, client_secret_file, port, no_browser, keyring_opt, no_keyring, compact):
         """Run the OAuth flow and store a token for an account."""
         with _handle_errors(compact):
             result = perform_login(
                 account=account,
                 email=email,
                 scopes=scopes,
+                add_scopes=add_scopes,
                 readonly=readonly,
                 client_secret_file=client_secret_file,
                 port=port,

@@ -331,6 +331,58 @@ class TestPerformLogin:
         with pytest.raises(ValidationError, match="Unknown service"):
             perform_login(account="work", scopes="nope")
 
+    def test_add_scopes_keeps_what_the_account_already_has(self, env, monkeypatch):
+        """A login replaces the token; --add-scopes must not lose existing access."""
+        monkeypatch.setenv("GW_CLIENT_ID", "id")
+        monkeypatch.setenv("GW_CLIENT_SECRET", "sec")
+        scopes_seen = []
+        _fake_flow(monkeypatch, scopes_seen)
+        perform_login(account="work", email="w@example.com", scopes="gmail")
+        already_granted = auth.load_token_data("work")["scopes"]
+        scopes_seen.clear()
+
+        perform_login(account="work", email="w@example.com", add_scopes="analytics")
+
+        requested = scopes_seen[0]
+        for kept in already_granted:
+            assert kept in requested
+        assert "https://www.googleapis.com/auth/analytics.readonly" in requested
+
+    def test_add_scopes_does_not_duplicate_an_existing_scope(self, env, monkeypatch):
+        monkeypatch.setenv("GW_CLIENT_ID", "id")
+        monkeypatch.setenv("GW_CLIENT_SECRET", "sec")
+        scopes_seen = []
+        _fake_flow(monkeypatch, scopes_seen)
+        perform_login(account="work", email="w@example.com", scopes="gmail")
+        granted = auth.load_token_data("work")["scopes"]
+        scopes_seen.clear()
+
+        perform_login(account="work", email="w@example.com", add_scopes="gmail")
+
+        requested = scopes_seen[0]
+        assert len(requested) == len(set(requested))
+        for kept in granted:
+            assert kept in requested
+
+    def test_scopes_and_add_scopes_are_mutually_exclusive(self, env, monkeypatch):
+        from output import ValidationError
+
+        with pytest.raises(ValidationError, match="mutually exclusive"):
+            perform_login(account="work", scopes="gmail", add_scopes="analytics")
+
+    def test_narrowing_scopes_warns_before_dropping_them(self, env, monkeypatch, capfd):
+        monkeypatch.setenv("GW_CLIENT_ID", "id")
+        monkeypatch.setenv("GW_CLIENT_SECRET", "sec")
+        scopes_seen = []
+        _fake_flow(monkeypatch, scopes_seen)
+        # The stored token records gmail.send; asking for calendar alone drops it.
+        perform_login(account="work", email="w@example.com", scopes="gmail")
+        capfd.readouterr()
+
+        perform_login(account="work", email="w@example.com", scopes="calendar")
+
+        assert "SCOPES_NARROWED" in capfd.readouterr().err
+
     def test_reuses_existing_legacy_token_path(self, env, monkeypatch):
         legacy = env.legacy_dir / ".google-token-mail.json"
         legacy.write_text(json.dumps(_token_data()))

@@ -116,6 +116,8 @@ from commands.docs import register as register_docs
 from commands.forms import register as register_forms
 from commands.drive import register as register_drive
 from commands.crm import register as register_crm
+from commands.analytics import register as register_analytics
+from commands.searchconsole import register as register_searchconsole
 from commands.completion import completion
 
 register_api(cli, _account_option, _compact_option)
@@ -128,6 +130,8 @@ register_docs(cli, _account_option, _compact_option)
 register_forms(cli, _account_option, _compact_option)
 register_drive(cli, _account_option, _compact_option)
 register_crm(cli, _account_option, _compact_option)
+register_analytics(cli, _account_option, _compact_option)
+register_searchconsole(cli, _account_option, _compact_option)
 cli.add_command(completion)
 
 
