@@ -7,6 +7,32 @@ All notable changes to this project are documented here. The format is based on
 ## Unreleased
 
 ### Added
+- **`gw analytics`** — read Google Analytics 4: `properties`, `report`, `realtime`,
+  `metadata`, `check`. Responses are flattened out of the GA4 wire format into plain
+  records, and metric values are converted to numbers using the type the API declares,
+  so rows sort and sum without reparsing. `metadata --grep` and `check` exist to settle
+  a field name before spending a call, which is the most common way a GA4 request fails.
+- **`gw searchconsole`** — read Google Search Console: `sites`, `query`, `sitemaps`,
+  `inspect`. Positional `keys` are named by their dimension. Read-only by construction:
+  the write half of the API is not exposed, and a test asserts it stays unreachable.
+- **Opt-in OAuth scopes** `analytics` (`analytics.readonly`) and `searchconsole`
+  (`webmasters.readonly`). Excluded from a default login, so no existing consent screen
+  widens and nobody is re-prompted for APIs they do not use.
+- **`gw auth login --add-scopes`** — authorize one more API while keeping the scopes the
+  account already has. A login replaces the token, so `--scopes` silently dropped
+  everything it did not name; that path now warns (`SCOPES_NARROWED`) listing what it
+  would lose, and `--add-scopes` refuses when there is no token to add to rather than
+  quietly issuing a narrower one.
+- Skills `gw-analytics` and `gw-searchconsole`, routed from `google-workspace`.
+
+### Fixed
+- The credential scrubber redacted documentation URLs. Its generic "40+ characters of
+  base64" pattern also matches an ordinary URL path, so a Google API error naming the
+  valid field names arrived as `see https://developers.google.[REDACTED]-schema`,
+  destroying the most useful part of the message. URL spans are now scrubbed with the
+  patterns that name a real credential shape and spared the generic run; a key inside a
+  URL is still redacted, and so is a bare base64 blob. Affects every `gw` command.
+
 - `gw crm init` / `gw crm status` / `gw crm path` — scaffold and inspect the CRM
   (`contacts.csv` + `companies.csv`) directly under your vault. Makes the CRM sync
   work out of the box for any knowledge-vault user, not just a pre-existing CRM.

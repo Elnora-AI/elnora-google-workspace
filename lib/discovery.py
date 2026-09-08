@@ -431,7 +431,7 @@ def handle_api_http_error(err, *, method: dict, method_path: str, account: str |
                     f"Method accepts: {', '.join(required) or 'unknown'}\n"
                     f"Token has: {', '.join(granted) or 'none'}\n"
                     f"Re-authenticate with broader scopes: gw auth login --account {name} "
-                    "[--scopes gmail,calendar,sheets,docs,tasks,forms]"
+                    "[--scopes gmail,calendar,sheets,docs,tasks,forms,drive,analytics,searchconsole]"
                 ),
                 code="INSUFFICIENT_SCOPES",
             ) from err

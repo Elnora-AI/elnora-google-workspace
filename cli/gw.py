@@ -87,7 +87,7 @@ _compact_option = click.option(
 @click.version_option(__version__, prog_name="gw")
 @click.pass_context
 def cli(ctx, compact: bool, output_format: str, fields: str | None, no_color: bool):
-    """Google Workspace CLI — agent-friendly Gmail, Calendar, Drive, Docs, Sheets, Forms, and Tasks."""
+    """Google Workspace CLI — agent-friendly Gmail, Calendar, Drive, Docs, Sheets, Forms, Tasks, Analytics and Search Console."""
     ctx.ensure_object(dict)
     ctx.obj["compact"] = compact
 
@@ -116,6 +116,8 @@ from commands.docs import register as register_docs
 from commands.forms import register as register_forms
 from commands.drive import register as register_drive
 from commands.crm import register as register_crm
+from commands.analytics import register as register_analytics
+from commands.searchconsole import register as register_searchconsole
 from commands.completion import completion
 
 register_api(cli, _account_option, _compact_option)
@@ -128,6 +130,8 @@ register_docs(cli, _account_option, _compact_option)
 register_forms(cli, _account_option, _compact_option)
 register_drive(cli, _account_option, _compact_option)
 register_crm(cli, _account_option, _compact_option)
+register_analytics(cli, _account_option, _compact_option)
+register_searchconsole(cli, _account_option, _compact_option)
 cli.add_command(completion)
 
 

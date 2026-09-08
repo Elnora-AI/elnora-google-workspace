@@ -148,10 +148,50 @@ _OAUTH_TOKEN_RE = re.compile(
 )
 
 
+# The generic "long run of base64 characters" arm of _CREDENTIAL_PATTERNS also
+# matches ordinary URL paths -- a Google docs link is 40+ characters of letters
+# and slashes -- which redacted the single most useful part of an API error. URL
+# spans are therefore scrubbed with the patterns that name a real credential
+# shape (ya29., AIza, sk-, Bearer) and spared the generic run.
+_URL_RE = re.compile(r"https?://[^\s]+")
+_NAMED_CREDENTIAL_RE = re.compile(
+    r"(sk-[a-zA-Z0-9]{20,}|ya29\.[a-zA-Z0-9_-]{50,}|AIza[a-zA-Z0-9_-]{35}|"
+    r"Bearer\s+[a-zA-Z0-9._-]{20,})",
+)
+
+
+# Inside a URL the generic pattern is applied per component rather than across
+# the whole string. A documentation path is long only because of its slashes --
+# every individual segment is short -- while a credential is one unbroken run,
+# so this keeps the link readable without letting a blob ride through in a path
+# segment or a query value.
+_URL_COMPONENT_SPLIT = re.compile(r"([/?&#=;,])")
+_LONG_B64_RE = re.compile(r"^[a-zA-Z0-9+]{40,}={0,2}$")
+
+
+def _scrub_url(match: re.Match) -> str:
+    url = match.group(0)
+    url = _NAMED_CREDENTIAL_RE.sub("[REDACTED]", url)
+    url = _OAUTH_TOKEN_RE.sub("[REDACTED]", url)
+    parts = _URL_COMPONENT_SPLIT.split(url)
+    return "".join(
+        "[REDACTED]" if _LONG_B64_RE.match(part) else part for part in parts
+    )
+
+
 def _scrub_credentials(text: str) -> str:
     """Remove potential API keys, tokens, and credentials from error text."""
+    protected: list[str] = []
+
+    def _stash(match: re.Match) -> str:
+        protected.append(_scrub_url(match))
+        return f"\x00URL{len(protected) - 1}\x00"
+
+    text = _URL_RE.sub(_stash, text)
     text = _CREDENTIAL_PATTERNS.sub("[REDACTED]", text)
     text = _OAUTH_TOKEN_RE.sub("[REDACTED]", text)
+    for i, url in enumerate(protected):
+        text = text.replace(f"\x00URL{i}\x00", url)
     return text
 
 
@@ -223,6 +263,17 @@ def _find_data_array(data: object) -> list[dict] | None:
         val = data.get(key)
         if isinstance(val, list) and val and isinstance(val[0], (dict, list)):
             return val
+    # Nothing on the known-key list. Rather than silently handing back JSON to
+    # someone who asked for csv -- which is what every command whose collection
+    # is named something else used to get -- take the array when there is
+    # exactly one candidate and so no guess to make. Two or more (check returns
+    # both dimensions and metrics) stays ambiguous and falls back to JSON.
+    candidates = [
+        val for val in data.values()
+        if isinstance(val, list) and val and isinstance(val[0], (dict, list))
+    ]
+    if len(candidates) == 1:
+        return candidates[0]
     return None
 
 
