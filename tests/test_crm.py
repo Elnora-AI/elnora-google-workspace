@@ -1,5 +1,6 @@
 """Tests for crm module — CSV operations, config caching, formula injection prevention."""
 
+import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -277,3 +278,88 @@ def test_read_campaign_csv_path_traversal():
     """Path traversal in campaign name should raise CliError."""
     with pytest.raises(CliError, match="Invalid campaign name"):
         crm.read_campaign_csv("../../etc/passwd")
+
+
+# ---------------------------------------------------------------------------
+# atomic_write_text — unique temp paths
+# ---------------------------------------------------------------------------
+
+
+def test_atomic_write_text_replaces_content(tmp_path):
+    """atomic_write_text overwrites the target and leaves no temp file behind."""
+    path = tmp_path / "contacts.csv"
+    path.write_text("old\n", encoding="utf-8")
+
+    crm.atomic_write_text(path, "new\n")
+
+    assert path.read_text(encoding="utf-8") == "new\n"
+    assert list(tmp_path.iterdir()) == [path]
+
+
+def test_atomic_write_text_temp_path_is_unique(tmp_path, monkeypatch):
+    """The scratch file carries pid + random suffix, so concurrent writers never share it.
+
+    A fixed ``.tmp`` name let two processes writing the same CSV promote a
+    half-mixed file; the temp names must differ between writes.
+    """
+    path = tmp_path / "contacts.csv"
+    seen: list[str] = []
+    real_replace = os.replace
+
+    def spy_replace(src, dst):
+        seen.append(str(src))
+        return real_replace(src, dst)
+
+    monkeypatch.setattr(crm.os, "replace", spy_replace)
+    crm.atomic_write_text(path, "a\n")
+    crm.atomic_write_text(path, "b\n")
+
+    assert len(set(seen)) == 2
+    for src in seen:
+        assert not src.endswith("contacts.tmp")
+        assert str(os.getpid()) in src
+
+
+def test_no_fixed_tmp_suffix_in_repo():
+    """No writer may go back to a shared, fixed-name temp file.
+
+    Every CSV write goes through ``crm.atomic_write_text``; a fixed temp name
+    let two processes writing the same table clobber each other.
+    """
+    plugin_root = Path(__file__).resolve().parent.parent
+    fixed_tmp = 'with_suffix(".' + 'tmp")'
+    offenders = [
+        py.relative_to(plugin_root).as_posix()
+        for src in ("lib", "agents", "cli", "scripts")
+        for py in (plugin_root / src).rglob("*.py")
+        if fixed_tmp in py.read_text(encoding="utf-8")
+    ]
+    assert offenders == []
+
+
+# ---------------------------------------------------------------------------
+# investor_contacts_csv_path — lives beside the CRM dir, not inside it
+# ---------------------------------------------------------------------------
+
+
+def test_investor_contacts_path_is_sibling_of_crm_dir(tmp_path):
+    """investor-contacts.csv resolves under investors_dir, not the CRM dir."""
+    config_file = tmp_path / "kb.md"
+    config_file.write_text(
+        "---\nvault_path: /vault\ncompany_dir: co\ncrm_dir: crm\n"
+        "investors_dir: investors\n---\n",
+        encoding="utf-8",
+    )
+    with patch.dict("os.environ", {"GW_KB_CONFIG": str(config_file)}):
+        path = crm.investor_contacts_csv_path()
+
+    assert path == Path("/vault/co/investors/investor-contacts.csv")
+    assert crm.crm_path() not in path.parents
+
+
+def test_investor_contacts_dir_is_opt_in(tmp_path):
+    """With no investors_dir configured, no investor file is resolved."""
+    config_file = tmp_path / "kb.md"
+    config_file.write_text("---\nvault_path: /vault\n---\n", encoding="utf-8")
+    with patch.dict("os.environ", {"GW_KB_CONFIG": str(config_file)}):
+        assert crm.investor_contacts_csv_path() is None

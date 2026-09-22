@@ -1318,3 +1318,36 @@ def test_scan_negative_value():
     import gmail
     with pytest.raises(ValidationError, match="positive"):
         gmail.scan(since="-1d")
+
+
+# ---------------------------------------------------------------------------
+# _crm_track_outbound kill switch
+# ---------------------------------------------------------------------------
+
+
+def test_crm_track_outbound_disabled_by_env(monkeypatch):
+    """GW_CRM_TRACK=off skips the CRM write without importing email_crm_sync."""
+    import gmail
+
+    monkeypatch.setenv("GW_CRM_TRACK", "off")
+    with patch("email_crm_sync.bump_recipients_last_contact") as bump:
+        result = gmail._crm_track_outbound(to="a@example.test")
+
+    bump.assert_not_called()
+    assert result["disabled"] is True
+    assert result["updated"] == 0
+
+
+def test_crm_track_outbound_runs_when_env_unset(monkeypatch):
+    """Without the kill switch the CRM write still fires."""
+    import gmail
+
+    monkeypatch.delenv("GW_CRM_TRACK", raising=False)
+    with patch(
+        "email_crm_sync.bump_recipients_last_contact",
+        return_value={"updated": 1, "matched": 1, "error": None},
+    ) as bump:
+        result = gmail._crm_track_outbound(to="a@example.test")
+
+    bump.assert_called_once()
+    assert result["updated"] == 1

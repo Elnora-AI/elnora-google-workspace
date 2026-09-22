@@ -1109,14 +1109,30 @@ def _build_dedup_sets() -> tuple[set[str], set[str]]:
     except CliError:
         pass  # contacts.csv may not exist yet
 
-    # Investor contacts with do_not_email flag
+    import csv as csv_mod
+
+    # Do-not-email comes from two places and both are load-bearing.
     dne_emails: set[str] = set()
-    investor_csv = crm.crm_path() / "investor-contacts.csv"
-    if investor_csv.exists():
-        import csv as csv_mod
+
+    # 1. The global suppression list: opt-outs, bounces and prior-contact
+    #    holds, for everyone. An opt-out is not campaign-scoped (CAN-SPAM
+    #    covers all commercial mail from the sender, and GDPR Art. 21(3) has
+    #    no expiry), so this file is the one that must never be missed.
+    suppression_csv = crm.suppression_csv_path()
+    if suppression_csv.exists():
+        with open(suppression_csv, encoding="utf-8", newline="") as f:
+            for row in csv_mod.DictReader(f):
+                email = row.get("email", "").strip().lower()
+                if email:
+                    dne_emails.add(email)
+
+    # 2. Investor contacts carrying do_not_email=true, which is a per-row flag
+    #    on a table the suppression list does not replace. Read only when
+    #    ``investors_dir`` is configured.
+    investor_csv = crm.investor_contacts_csv_path()
+    if investor_csv is not None and investor_csv.exists():
         with open(investor_csv, encoding="utf-8", newline="") as f:
-            reader = csv_mod.DictReader(f)
-            for row in reader:
+            for row in csv_mod.DictReader(f):
                 if row.get("do_not_email", "").strip().lower() == "true":
                     email = row.get("email", "").strip().lower()
                     if email:

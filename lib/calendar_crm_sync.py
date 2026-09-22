@@ -17,7 +17,6 @@ from __future__ import annotations
 import csv
 import io
 import json
-import os
 import re
 import sys
 from datetime import datetime, timedelta
@@ -427,16 +426,7 @@ def _append_company(company_data: dict[str, str]) -> None:
     writer.writeheader()
     writer.writerows(existing)
 
-    tmp_path = csv_path.with_suffix(".tmp")
-    try:
-        tmp_path.write_text(buf.getvalue(), encoding="utf-8")
-        os.replace(str(tmp_path), str(csv_path))
-    except OSError:
-        try:
-            tmp_path.unlink(missing_ok=True)
-        except OSError:
-            pass
-        csv_path.write_text(buf.getvalue(), encoding="utf-8")
+    crm.atomic_write_text(csv_path, buf.getvalue())
 
 
 # ---------------------------------------------------------------------------

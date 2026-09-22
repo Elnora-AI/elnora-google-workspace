@@ -39,7 +39,12 @@ def _crm_track_outbound(to: str | None, cc: str | None = None) -> dict:
     Wraps ``email_crm_sync.bump_recipients_last_contact`` with full exception
     isolation — a CRM failure must never break the email send path. Lazy
     import keeps gmail.py independent of CRM at module load.
+
+    ``GW_CRM_TRACK=off`` disables the write entirely (sends still go out), which
+    is the supported way to stop CRM CSV writes without touching CRM config.
     """
+    if os.environ.get("GW_CRM_TRACK", "").strip().lower() == "off":
+        return {"updated": 0, "matched": 0, "error": None, "disabled": True}
     try:
         import email_crm_sync  # type: ignore[import-not-found]
         return email_crm_sync.bump_recipients_last_contact(

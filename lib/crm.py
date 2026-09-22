@@ -15,6 +15,7 @@ from __future__ import annotations
 import csv
 import io
 import os
+import uuid
 from pathlib import Path
 
 import gw_config
@@ -48,7 +49,10 @@ def load_config() -> dict[str, str]:
     the vault) and ``crm_dir`` defaults to ``crm``, so a fresh vault gets a
     working CRM at ``<vault>/crm`` with zero extra configuration. Configs that
     set those keys explicitly (to nest the CRM elsewhere in the vault) keep
-    working unchanged. Result is cached after first successful load.
+    working unchanged. ``investors_dir`` is opt-in with no default: it names
+    the vault folder that holds ``investor-contacts.csv`` (a sibling of the CRM
+    dir, not a child of it), and when it is unset no investor file is read.
+    Result is cached after first successful load.
     """
     global _cached_config
     if _cached_config is not None:
@@ -111,6 +115,34 @@ def contacts_csv_path() -> Path:
 def companies_csv_path() -> Path:
     """Resolve the companies.csv path."""
     return crm_path() / "companies.csv"
+
+
+def investor_contacts_csv_path() -> Path | None:
+    """Resolve the investor-contacts.csv path inside ``investors_dir``.
+
+    Investor contacts live beside the CRM dir, not inside it: they are their
+    own table (it carries ``do_not_email``) and outreach reads it only as a
+    suppression list. Returns None when ``investors_dir`` is not configured.
+    """
+    config = load_config()
+    investors_dir = config.get("investors_dir", "")
+    if not investors_dir:
+        return None
+    return (
+        Path(config["vault_path"]) / config["company_dir"]
+        / investors_dir / "investor-contacts.csv"
+    )
+
+
+def suppression_csv_path() -> Path:
+    """Resolve the global do-not-contact list inside ``crm_dir``.
+
+    One file for the whole estate, deliberately not per-campaign: an opt-out
+    covers all commercial mail from the sender (CAN-SPAM) and carries no
+    expiry (GDPR Art. 21(3)), so a campaign-scoped list would let the next
+    campaign re-contact someone who asked to be left alone.
+    """
+    return crm_path() / "suppression.csv"
 
 
 def campaigns_dir() -> Path:
@@ -334,12 +366,41 @@ def _sanitize_csv_value(value: str) -> str:
     return value
 
 
+def atomic_write_text(path: Path, content: str) -> None:
+    """Write ``content`` to ``path`` via a per-process temp file, then os.replace().
+
+    The temp name carries the writer's pid and a random suffix, so two CRM
+    writers running at the same time never share a scratch file and can never
+    promote each other's half-written bytes into the real CSV. On POSIX the
+    replace is atomic; on Windows it is best-effort but still prevents data
+    loss from an interrupted write.
+
+    This is the single write path for every CRM CSV in the plugin — callers
+    render their own content (each keeps its own sanitisation and quoting) and
+    hand it here.
+    """
+    tmp_path = path.with_suffix(f".{os.getpid()}.{uuid.uuid4().hex[:8]}.tmp")
+    try:
+        tmp_path.write_text(content, encoding="utf-8")
+        os.replace(str(tmp_path), str(path))
+    except OSError:
+        # Never fall back to writing the real file in place. A direct write
+        # truncates before it fills, so a failure partway through leaves the
+        # CSV short, which is the loss this function exists to prevent. The
+        # vault sits on a Drive File Stream mount where OSError is an ordinary
+        # transient, so that fallback would fire exactly when it does the most
+        # damage. Drop the scratch file and let the caller see the failure.
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
+        raise
+
+
 def _write_csv(path: Path, rows: list[dict[str, str]]) -> None:
     """Write a list of dicts to a CSV file, preserving column order from the first row.
 
-    Uses atomic write pattern: write to temp file then os.replace().
-    On POSIX this is truly atomic; on Windows it is best-effort but
-    still prevents data loss from interrupted writes.
+    Persisted through ``atomic_write_text`` (unique temp file → os.replace).
     All fields are quoted to safely handle special characters.
     """
     if not rows:
@@ -369,17 +430,5 @@ def _write_csv(path: Path, rows: list[dict[str, str]]) -> None:
     )
     writer.writeheader()
     writer.writerows(sanitized_rows)
-    content = buf.getvalue()
 
-    # Atomic write: temp file in same directory → os.replace()
-    tmp_path = path.with_suffix(".tmp")
-    try:
-        tmp_path.write_text(content, encoding="utf-8")
-        os.replace(str(tmp_path), str(path))
-    except OSError:
-        # Fallback: direct write (Windows edge cases)
-        try:
-            tmp_path.unlink(missing_ok=True)
-        except OSError:
-            pass
-        path.write_text(content, encoding="utf-8")
+    atomic_write_text(path, buf.getvalue())

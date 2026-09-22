@@ -49,7 +49,7 @@ $CLI enroll --campaign CAMPAIGN_NAME --sequence SEQUENCE_NAME --input APOLLO_JSO
 3. **Max 50 emails per batch.** The agent hard-caps at 50 per invocation.
 4. **Before first campaign:** Do a `--dry-run` first, then create 3-5 drafts for the user to review.
 5. **Ask the user before sending.** Never auto-send without explicit approval.
-6. **Respect do_not_email flags.** Before building any campaign list, cross-reference against your suppression list (e.g. `do-not-email.csv`) and EXCLUDE any contact where `do_not_email=true`. These contacts explicitly opted out. This is non-negotiable.
+6. **Respect the suppression list.** Before building any campaign list, exclude every address in the global `suppression.csv` at the root of your CRM directory, and, when `investors_dir` is configured, every investor contact carrying `do_not_email=true`. `enroll` already does both through `_build_dedup_sets`, so a list built any other way has to match it. There is one suppression file for the whole estate rather than one per campaign: an opt-out covers all commercial mail from the sender and never expires, so a campaign-scoped list lets the next campaign re-contact someone who asked to be left alone. This is non-negotiable.
 
 ## Workflow
 
