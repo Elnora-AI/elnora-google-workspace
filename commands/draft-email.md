@@ -24,7 +24,7 @@ If your knowledge base has a writing-voice guide, load it and apply it. If there
 If you have a voice guide, pay particular attention to:
 
 - Any **at-a-glance** / quick-reference section — banned phrases, banned punctuation, hard safety rules. This is the 90% of the catch.
-- The relevant **by channel** subsection (cold outreach / inbound consulting / professional contacts / etc.) for the email type you're drafting.
+- The relevant **by channel** subsection (prospecting / inbound consulting / professional contacts / etc.) for the email type you're drafting.
 - The **core voice principles** if drafting more than a one-liner.
 
 If your knowledge base is configured (`.claude/knowledge-base.local.md`), the guide typically lives under `{vault_path}/{company_dir}/` — resolve the path from that config.
@@ -114,7 +114,7 @@ Compose the body in your voice. Apply the channel-specific overlay from your voi
 
 **No manual signature.** Do NOT append a name / title / company / contact signature block. This Gmail account auto-appends the user's configured signature, so a manual one duplicates it. End the body at the closing line (e.g. `Best regards,`) at most — never type out the name/title/company/URL yourself.
 
-- Cold outreach → under 150 words, lead with their problem, one CTA, close with a short sign-off line only (no manual signature block), no emojis.
+- Prospecting → under 150 words, lead with their problem, one CTA, close with a short sign-off line only (no manual signature block), no emojis.
 - Inbound consulting → warm + specific deliverables, longer is OK if there's a real relationship, social proof stays.
 - Professional contacts (accountants, lawyers) → warm, context-before-ask, friendly close.
 - Reply to existing thread → respond to what they SAID, not what you think they're DOING. Keep tone consistent with the thread.
@@ -163,7 +163,7 @@ DRAFT CREATED
 
 Recipient: <name> <email>
 Subject: <subject>
-Channel: <cold-outreach | inbound-consulting | reply | professional-contact | …>
+Channel: <prospecting | inbound-consulting | reply | professional-contact | …>
 Tone overlay applied: <which voice guide section, if any>
 Em-dash count: <n>
 Banned-phrase check: clean / 1 hit ([phrase])
@@ -198,7 +198,7 @@ Reply "send" to send via `gw gmail send-draft <draft-id>`, or paste edits.
 /draft-email 19d88e7b7f93caee
 ```
 
-**New cold outreach email to a prospect:**
+**New email to a prospect:**
 ```
 /draft-email prospect@example.com partnership conversation
 ```

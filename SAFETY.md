@@ -52,8 +52,9 @@ the test suite.
 - **Drive sharing** grants access to **specific people only** (`type=user`).
   Creating an "anyone with the link" permission is deliberately unsupported.
 - **Calendar delete** does not notify attendees unless you pass `--notify`.
-- **Outreach** is draft-first: the `cold-outreach` agent and `/draft-email` create
-  Gmail drafts for your review and never auto-send.
+- **Outreach** is draft-first: `/draft-email` creates Gmail drafts for your review
+  and never auto-sends. The `cold-outreach` agent was retired with the sender in
+  1.3.2.
 
 ## Input validation
 

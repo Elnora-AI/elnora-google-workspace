@@ -1,9 +1,9 @@
-"""Cold outreach campaign agent — send, scan, and track outreach emails.
+"""Cold outreach campaign agent — campaign statistics only.
 
-Three modes:
-  run     Send outreach emails from contacts (vault CSV or Google Sheets)
-  scan    Monitor inbox for replies and update statuses
-  status  Show campaign statistics
+The sender was retired in 1.3.2 (see CHANGELOG.md). ``run``, ``scan`` and
+``enroll`` were retired with it and refuse with a non-zero exit, and
+``_send_with_retry`` refuses before it reaches Gmail. One mode remains:
+  status  Show campaign statistics (read-only)
 
 Contact sources:
   vault   Read/write contacts from vault CRM CSV (default, recommended)
@@ -31,7 +31,7 @@ import click
 import crm
 import gmail
 import sheets
-from output import AuthError, CliError, RateLimitError, output_error, output_success
+from output import AuthError, CliError, output_error, output_success
 from reward import (
     SENTIMENT_TO_CRM_STAGE,
     UNSUBSCRIBE_KEYWORDS,
@@ -60,10 +60,6 @@ def _validate_account_opt(ctx, param, value):
     except AuthError as err:
         raise click.BadParameter(err.message)
 
-
-# Retry settings for transient API errors
-MAX_RETRIES = 3
-RETRY_BASE_DELAY = 30  # seconds — matches Google rate-limit guidance
 
 # Default personalization fills, used only when a template references
 # {value_prop} or {cta} but neither the contact nor the template supplies them.
@@ -95,40 +91,12 @@ def _send_with_retry(
     account: str | None,
     as_draft: bool = False,
 ) -> dict:
-    """Send or draft an email with retry on transient errors.
+    """Refuse. This was the only function here that called gmail.send.
 
-    Retries on RateLimitError with exponential backoff.
-    Re-raises AuthError immediately (fatal — token is dead).
-    Other CliErrors are retried once, then raised as non-fatal.
+    The sender was retired in 1.3.2, so every path that used to send or draft
+    through this module stops here, before any Gmail call.
     """
-    last_exc: Exception | None = None
-    for attempt in range(MAX_RETRIES):
-        try:
-            if as_draft:
-                result = gmail.draft(to=contact["email"], subject=subject, body=body, account=account)
-                return {"action": "drafted", "result": result}
-            else:
-                result = gmail.send(to=contact["email"], subject=subject, body=body, account=account)
-                return {"action": "sent", "result": result}
-        except AuthError:
-            raise  # Fatal — no point retrying with a dead token
-        except RateLimitError as exc:
-            last_exc = exc
-            delay = RETRY_BASE_DELAY * (2 ** attempt)
-            click.echo(f"  Rate limited — waiting {delay}s before retry {attempt + 1}/{MAX_RETRIES}...", err=True)
-            time.sleep(delay)
-        except CliError as exc:
-            # Other API errors (5xx, permission, validation) — retry once
-            if attempt == 0:
-                last_exc = exc
-                click.echo(f"  API error — retrying in {RETRY_BASE_DELAY}s...", err=True)
-                time.sleep(RETRY_BASE_DELAY)
-            else:
-                raise
-    # All retries exhausted
-    if last_exc is None:
-        raise CliError("All retries exhausted with no recorded exception")
-    raise last_exc
+    raise _retired_error("sending")
 
 
 def _find_columns(header_row: list[str]) -> dict[str, int]:
@@ -330,7 +298,7 @@ def send_outreach_email(
 ) -> dict:
     """Send or draft a single outreach email.
 
-    Uses _send_with_retry for automatic retry on transient errors.
+    Refuses unless ``dry_run``: ``_send_with_retry`` was retired with the sender.
 
     Returns:
         dict with keys: action ("sent"|"drafted"|"dry_run"), result (API response or None)
@@ -346,13 +314,28 @@ def send_outreach_email(
 # ---------------------------------------------------------------------------
 
 
+# Retired with the sender in 1.3.2. Refused in the group callback, which click
+# runs before it parses the verb's own options, so no arguments reach them.
+RETIRED_VERBS = ("run", "scan", "enroll")
+
+
+def _retired_error(what: str) -> CliError:
+    return CliError(
+        f"cold-outreach {what} was retired with the sender in 1.3.2.",
+        suggestion="See the 1.3.2 entry in CHANGELOG.md.",
+        code="RETIRED",
+    )
+
+
 @click.group()
-def cli():
-    """Cold outreach campaign agent."""
-    pass
+@click.pass_context
+def cli(ctx):
+    """Cold outreach campaign statistics. Sending was retired in 1.3.2."""
+    if ctx.invoked_subcommand in RETIRED_VERBS:
+        output_error(_retired_error(ctx.invoked_subcommand))
 
 
-@cli.command()
+@cli.command(hidden=True)
 @click.option("--source", default="vault", type=click.Choice(["vault", "sheets"]), help="Contact source: vault CRM CSV (default) or Google Sheets")
 @click.option("--sheet", default=None, help="Google Sheets spreadsheet ID (required if --source=sheets)")
 @click.option("--campaign", default=None, help="Campaign CSV name (e.g. q3-outreach). Overrides --source.")
@@ -657,7 +640,7 @@ def _run_campaign(campaign: str, template: str, account: str | None, batch_size:
     }, compact=compact)
 
 
-@cli.command()
+@cli.command(hidden=True)
 @click.option("--source", default="vault", type=click.Choice(["vault", "sheets"]), help="Contact source: vault CRM CSV (default) or Google Sheets")
 @click.option("--sheet", default=None, help="Google Sheets spreadsheet ID (required if --source=sheets)")
 @click.option("--campaign", default=None, help="Campaign CSV name. Overrides --source.")
@@ -1339,7 +1322,7 @@ def _status_campaign(campaign: str, compact: bool) -> None:
     }, compact=compact)
 
 
-@cli.command()
+@cli.command(hidden=True)
 @click.option("--campaign", required=True, help="Campaign CSV name (e.g. pharma-vp-2026-03)")
 @click.option("--sequence", required=True, help="Sequence name (e.g. cold-outreach-pharma-vp)")
 @click.option("--input", "input_path", required=True, help="Path to Apollo JSON export file")
