@@ -107,6 +107,26 @@ def crm_path() -> Path:
     return Path(config["vault_path"]) / config["company_dir"] / config["crm_dir"]
 
 
+def require_crm_dir() -> None:
+    """Refuse a CRM sync unless ``crm_dir`` is set in the knowledge-base config.
+
+    Readers and ``gw crm init`` fall back to ``<vault>/crm``. The sync jobs write
+    the CSVs unattended, so they write only to a CRM folder the config names.
+    """
+    config_path = gw_config.find_kb_config()
+    content = config_path.read_text(encoding="utf-8") if config_path else ""
+    if not gw_config.parse_frontmatter(content).get("crm_dir"):
+        raise CliError(
+            "CRM sync refused: no CRM CSV path is configured. The sync writes "
+            "contacts.csv and companies.csv only to a folder you name explicitly.",
+            suggestion=(
+                "Add 'crm_dir: <folder>' (e.g. 'crm_dir: crm') to "
+                f"{config_path or '.claude/knowledge-base.local.md'}, "
+                "or leave CRM sync off."
+            ),
+        )
+
+
 def contacts_csv_path() -> Path:
     """Resolve the contacts.csv path."""
     return crm_path() / "contacts.csv"

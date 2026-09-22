@@ -60,4 +60,5 @@ steps — use those.
 CRM sync, `/prep-meeting`, and outreach need a knowledge base
 (`.claude/knowledge-base.local.md`, provided by `Elnora-AI/knowledge-vault`). When
 it is absent these commands no-op with a message; the core Google commands never
-depend on it.
+depend on it. CRM CSV writes are opt-in: `sync-crm` refuses unless `crm_dir` is set
+in that config, and sends update the CRM only with `GW_CRM_TRACK=on`.

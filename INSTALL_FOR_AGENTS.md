@@ -216,7 +216,9 @@ and need a knowledge base. Suggest, do not force:
 
 then run its setup. Once `.claude/knowledge-base.local.md` exists, the connector
 auto-enables. Without it, those commands no-op with a message and every core
-Google command still works.
+Google command still works. CRM CSV writes stay off until the user opts in:
+`sync-crm` needs `crm_dir` set in that file, and sends update the CRM only with
+`GW_CRM_TRACK=on`.
 
 ## Completion checklist
 

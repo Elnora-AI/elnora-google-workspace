@@ -11,9 +11,10 @@ Environment variables (all optional):
   GW_INTERNAL_DOMAINS  Comma-separated email domains treated as "internal" and
                        skipped by CRM sync (e.g. ``acme.com,mail.acme.com``).
                        Default: empty — nothing is treated as internal.
-  GW_CRM_TRACK         Set to ``off`` to stop outbound sends writing to the CRM
-                       (read by ``gmail._crm_track_outbound``). Default: unset —
-                       sends bump ``last_contact_date``.
+  GW_CRM_TRACK         Set to ``on`` to have outbound sends bump
+                       ``last_contact_date`` in the CRM CSV (read by
+                       ``gmail._crm_track_outbound``). Default: unset — sends
+                       never write the CRM.
   GW_SLACK_USER_ID     Slack user id to DM meeting briefs to. Default: unset —
                        briefs print to stdout only.
   GW_SLACK_CLI_BIN     Path to a Slack CLI entry point used to deliver the DM.

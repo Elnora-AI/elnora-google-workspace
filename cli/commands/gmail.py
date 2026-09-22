@@ -404,8 +404,10 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
         if not gw_config.kb_configured():
             click.echo(click.style(gw_config.KB_NOT_CONFIGURED, fg="yellow"))
             return
+        import crm as crm_lib
         import email_crm_sync
         with _handle_errors(compact):
+            crm_lib.require_crm_dir()
             result = email_crm_sync.sync(
                 lookback_days=lookback_days, limit=limit,
                 dry_run=dry_run, account=account,
@@ -434,7 +436,10 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
         Task Scheduler (Windows), or the user crontab (Linux). Falls back to
         printing the exact command if the scheduler can't be driven.
         """
+        import crm as crm_lib
         import scheduler
+        with _handle_errors():
+            crm_lib.require_crm_dir()
         scheduler.install("gmail", interval_hours)
 
     @gmail.command(name="sync-crm-uninstall")

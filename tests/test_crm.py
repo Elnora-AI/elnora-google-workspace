@@ -3,7 +3,7 @@
 import os
 import sys
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -363,3 +363,73 @@ def test_investor_contacts_dir_is_opt_in(tmp_path):
     config_file.write_text("---\nvault_path: /vault\n---\n", encoding="utf-8")
     with patch.dict("os.environ", {"GW_KB_CONFIG": str(config_file)}):
         assert crm.investor_contacts_csv_path() is None
+
+
+# ---------------------------------------------------------------------------
+# require_crm_dir — the sync jobs write only to a CRM folder the config names
+# ---------------------------------------------------------------------------
+
+
+def _kb(tmp_path, body: str) -> Path:
+    config_file = tmp_path / "kb.md"
+    config_file.write_text(f"---\nvault_path: {tmp_path / 'vault'}\n{body}---\n", encoding="utf-8")
+    return config_file
+
+
+def test_require_crm_dir_refuses_the_default_location(tmp_path):
+    """vault_path alone gives readers <vault>/crm, but not the sync writers."""
+    with patch.dict("os.environ", {"GW_KB_CONFIG": str(_kb(tmp_path, ""))}):
+        with pytest.raises(CliError, match="no CRM CSV path is configured"):
+            crm.require_crm_dir()
+
+
+def test_require_crm_dir_accepts_an_explicit_crm_dir(tmp_path):
+    with patch.dict("os.environ", {"GW_KB_CONFIG": str(_kb(tmp_path, "crm_dir: crm\n"))}):
+        crm.require_crm_dir()
+
+
+@pytest.mark.parametrize("args", [
+    ["gmail", "sync-crm"],
+    ["calendar", "sync-crm"],
+    ["gmail", "sync-crm-install"],
+    ["calendar", "sync-crm-install"],
+])
+def test_sync_crm_commands_refuse_without_crm_dir(tmp_path, args):
+    """Each sync command, and each installer, refuses before touching Gmail,
+    Calendar or the host scheduler."""
+    from click.testing import CliRunner
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "cli"))
+    from gw import cli as gw_cli  # type: ignore
+    import calendar_crm_sync
+    import email_crm_sync
+    import output as output_mod
+    import scheduler
+
+    errors: list[str] = []
+    reached = MagicMock(side_effect=AssertionError("the command must refuse first"))
+    with patch.dict("os.environ", {"GW_KB_CONFIG": str(_kb(tmp_path, ""))}), \
+         patch.object(output_mod, "_write_stderr", side_effect=errors.append), \
+         patch.object(email_crm_sync, "sync", reached), \
+         patch.object(calendar_crm_sync, "load_state", reached), \
+         patch.object(scheduler, "install", reached):
+        result = CliRunner().invoke(gw_cli, args, catch_exceptions=False)
+
+    assert result.exit_code != 0
+    assert "crm_dir" in "".join(errors)
+    reached.assert_not_called()
+
+
+def test_gmail_sync_crm_runs_with_an_explicit_crm_dir(tmp_path):
+    from click.testing import CliRunner
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "cli"))
+    from gw import cli as gw_cli  # type: ignore
+    import email_crm_sync
+    import output as output_mod
+
+    with patch.dict("os.environ", {"GW_KB_CONFIG": str(_kb(tmp_path, "crm_dir: crm\n"))}), \
+         patch.object(output_mod, "_write_stdout"), \
+         patch.object(email_crm_sync, "sync", return_value={"processed": 0}) as sync:
+        result = CliRunner().invoke(gw_cli, ["gmail", "sync-crm", "--dry-run"], catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    sync.assert_called_once()
