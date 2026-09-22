@@ -88,9 +88,8 @@ before the subcommand: `gw --output csv analytics report ...`.
 `gw-tasks`, `gw-inbox`, `gw-analytics`, `gw-searchconsole`) and `gw-api` for the
 generic invoker.
 
-The `cold-outreach` agent sends outreach from a contact sheet or the CRM, scans
-for replies and tracks stats. It drafts first, and its CRM path needs the
-optional knowledge base.
+The `cold-outreach` agent was retired with the sender in 1.3.2. See
+[CHANGELOG.md](CHANGELOG.md).
 
 ---
 

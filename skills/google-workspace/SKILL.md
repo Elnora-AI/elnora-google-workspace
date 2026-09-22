@@ -75,4 +75,6 @@ Accounts are user-defined in `accounts.json` (see `gw auth list` / `gw auth logi
 | `--account work` | `work@example.com` | Work / outreach |
 | `--account personal` | `personal@example.com` | Personal |
 
-Use a dedicated outreach account (e.g. `--account work`) for cold outreach rather than your primary. Never default to `personal` — it must be passed explicitly. All commands output JSON; add `--compact` to save tokens.
+Use a dedicated outreach account (e.g. `--account work`) for outreach rather than your primary. Never default to `personal` — it must be passed explicitly. All commands output JSON; add `--compact` to save tokens.
+
+The `cold-outreach` agent was retired with the sender in 1.3.2. Draft outreach with `/draft-email`.
