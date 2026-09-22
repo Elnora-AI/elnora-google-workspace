@@ -50,6 +50,14 @@ All notable changes to this project are documented here. The format is based on
   unaffected. An empty (freshly-scaffolded) CRM now syncs as a clean no-op instead of
   reporting an error.
 
+## [1.3.2](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.3.1...v1.3.2) (2026-09-22)
+
+
+### Bug Fixes
+
+* **cold-outreach:** retire the sender, and refuse run, enroll and scan ([f64e6cf](https://github.com/Elnora-AI/elnora-google-workspace/commit/f64e6cf4c1613aa66702bc42f817effa9b4ca68e))
+* **crm:** give CSV writers unique temp files, and read the suppression list ([1a02c98](https://github.com/Elnora-AI/elnora-google-workspace/commit/1a02c98bf541605d66d08bfeb49b166767d3d72a))
+
 ## [1.3.1](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.3.0...v1.3.1) (2026-09-08)
 
 
