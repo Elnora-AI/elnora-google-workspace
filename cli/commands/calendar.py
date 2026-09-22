@@ -207,6 +207,9 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
             return
 
         import calendar_crm_sync as sync
+        import crm as crm_lib
+        with _handle_errors(compact):
+            crm_lib.require_crm_dir()
 
         if dry_run:
             click.echo(click.style("DRY RUN — no files will be written\n", fg="yellow"))
@@ -348,7 +351,10 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
         Task Scheduler (Windows), or the user crontab (Linux). Falls back to
         printing the exact command if the scheduler can't be driven.
         """
+        import crm as crm_lib
         import scheduler
+        with _handle_errors():
+            crm_lib.require_crm_dir()
         scheduler.install("calendar", interval_hours)
 
     @calendar.command(name="sync-crm-uninstall")

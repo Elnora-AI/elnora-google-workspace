@@ -1321,15 +1321,19 @@ def test_scan_negative_value():
 
 
 # ---------------------------------------------------------------------------
-# _crm_track_outbound kill switch
+# _crm_track_outbound opt-in
 # ---------------------------------------------------------------------------
 
 
-def test_crm_track_outbound_disabled_by_env(monkeypatch):
-    """GW_CRM_TRACK=off skips the CRM write without importing email_crm_sync."""
+@pytest.mark.parametrize("value", [None, "", "off", "1", "true"])
+def test_crm_track_outbound_off_unless_on(monkeypatch, value):
+    """Only GW_CRM_TRACK=on writes the CRM; unset and anything else skip it."""
     import gmail
 
-    monkeypatch.setenv("GW_CRM_TRACK", "off")
+    if value is None:
+        monkeypatch.delenv("GW_CRM_TRACK", raising=False)
+    else:
+        monkeypatch.setenv("GW_CRM_TRACK", value)
     with patch("email_crm_sync.bump_recipients_last_contact") as bump:
         result = gmail._crm_track_outbound(to="a@example.test")
 
@@ -1338,11 +1342,11 @@ def test_crm_track_outbound_disabled_by_env(monkeypatch):
     assert result["updated"] == 0
 
 
-def test_crm_track_outbound_runs_when_env_unset(monkeypatch):
-    """Without the kill switch the CRM write still fires."""
+def test_crm_track_outbound_runs_when_opted_in(monkeypatch):
+    """GW_CRM_TRACK=on turns the CRM write on."""
     import gmail
 
-    monkeypatch.delenv("GW_CRM_TRACK", raising=False)
+    monkeypatch.setenv("GW_CRM_TRACK", "on")
     with patch(
         "email_crm_sync.bump_recipients_last_contact",
         return_value={"updated": 1, "matched": 1, "error": None},

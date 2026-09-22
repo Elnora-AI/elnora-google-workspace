@@ -36,12 +36,13 @@ optional and each feature no-ops cleanly when unset.
 
 The CRM location is read from the knowledge-base config file itself (frontmatter
 keys, not env vars). Only `vault_path` is required — `gw crm init` scaffolds the
-CRM at `<vault_path>/crm`:
+CRM at `<vault_path>/crm`. The `sync-crm` commands write CSVs only when `crm_dir`
+is set explicitly, and refuse otherwise:
 
 | Config key | Purpose | Default |
 |---|---|---|
 | `vault_path` | Absolute path to your vault (written by knowledge-vault) | required |
-| `crm_dir` | Subfolder under the vault that holds the CRM CSVs | `crm` |
+| `crm_dir` | Subfolder under the vault that holds the CRM CSVs. Required by `sync-crm` | `crm` for readers and `gw crm init`; unset blocks `sync-crm` |
 | `company_dir` | Optional extra prefix nested between `vault_path` and `crm_dir` | empty |
 | `investors_dir` | Optional vault subfolder, beside `crm_dir`, holding `investor-contacts.csv`; its `do_not_email=true` rows are suppressed | unset (not read) |
 
@@ -49,7 +50,7 @@ CRM at `<vault_path>/crm`:
 |---|---|---|
 | `GW_KB_CONFIG` | Explicit path to the knowledge-base config markdown | discovered from CWD |
 | `GW_INTERNAL_DOMAINS` | Comma-separated email domains to treat as internal (skipped by CRM sync) | empty |
-| `GW_CRM_TRACK` | Set to `off` to stop outbound sends writing to the CRM | unset (tracking on) |
+| `GW_CRM_TRACK` | Set to `on` to have outbound sends bump `last_contact_date` in `contacts.csv` | unset (tracking off) |
 | `GW_TRANSCRIPT_DIRS` | Comma-separated meeting-transcript dirs meeting-prep scans | empty |
 | `GW_SLACK_USER_ID` | Slack user id to DM meeting briefs to | unset (prints to stdout) |
 | `GW_SLACK_CLI_BIN` | Path to a Slack CLI entry point for DM delivery | unset |

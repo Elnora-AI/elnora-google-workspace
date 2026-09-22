@@ -126,6 +126,10 @@ gw calendar sync-crm-install  # schedule calendar to CRM
 file knowledge-vault writes. The CRM lands at `<vault>/crm` by default. The sync
 then bumps `last_contact_date`, promotes pipeline stages and links meetings.
 
+CRM writes are opt-in. The `sync-crm` commands and their installers refuse until
+`crm_dir` is set in that file (`crm_dir: crm` for the default location). A send
+updates `contacts.csv` only when `GW_CRM_TRACK=on`.
+
 Connector features are a clean no-op when no knowledge base is configured, and the
 core Google commands do not depend on one.
 

@@ -212,6 +212,6 @@ Reply "send" to send via `gw gmail send-draft <draft-id>`, or paste edits.
 
 - This skill is the ONLY supported path for drafting emails on the user's behalf. Do not use raw `gmail.send`/`gmail.reply` without going through these steps — those calls bypass voice loading and verification.
 - Sending is always a separate, explicit step the user authorizes. Never auto-send.
-- After the user says "send" / "approved", run `gw gmail send-draft <draft-id>` (if CRM auto-tracking is wired up, this bumps `last_contact_date` for known recipients with channel=`email-out`).
+- After the user says "send" / "approved", run `gw gmail send-draft <draft-id>` (with `GW_CRM_TRACK=on`, this bumps `last_contact_date` for known recipients with channel=`email-out`).
 - If the user edits the draft inline, regenerate via `gw gmail update-draft <draft-id> ...` and re-show.
 - Log notable corrections back into your voice guide, if you keep one.
