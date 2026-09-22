@@ -43,7 +43,11 @@ def reset_config_cache():
 
 @pytest.fixture
 def tmp_crm(tmp_path):
-    """Create a temporary CRM with contacts, investor-contacts, and sequences."""
+    """Create a temporary CRM with contacts, investor-contacts, and sequences.
+
+    ``investor-contacts.csv`` is written to the investors dir (a sibling of the
+    CRM dir), which is where it actually lives.
+    """
     vault = tmp_path / "vault" / "company" / "crm"
     vault.mkdir(parents=True)
     (vault / "campaigns").mkdir()
@@ -59,8 +63,10 @@ def tmp_crm(tmp_path):
         encoding="utf-8",
     )
 
-    # investor-contacts.csv — do_not_email list
-    investor_contacts = vault / "investor-contacts.csv"
+    # investor-contacts.csv — do_not_email list, in the investors dir
+    investors_dir = vault.parent / "investors"
+    investors_dir.mkdir()
+    investor_contacts = investors_dir / "investor-contacts.csv"
     investor_contacts.write_text(
         "slug,first_name,last_name,email,do_not_email,linkedin_url,twitter,fund_slug,role,is_primary_contact,notes\n"
         "investor-1,Bob,Investor,bob@fund.com,true,,,fund-1,Partner,true,\n"
@@ -94,6 +100,7 @@ def mock_config(tmp_crm, tmp_path):
         "vault_path": str(tmp_path / "vault"),
         "company_dir": "company",
         "crm_dir": "crm",
+        "investors_dir": "investors",
     }
     with patch.object(crm, "load_config", return_value=config):
         with patch.object(crm, "_cached_config", config):

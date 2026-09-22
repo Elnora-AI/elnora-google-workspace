@@ -66,3 +66,45 @@ def test_find_kb_config_walks_up_from_cwd(monkeypatch, tmp_path):
     cfg.write_text("---\nvault_path: /v\n---\n", encoding="utf-8")
     monkeypatch.chdir(nested)
     assert gw_config.find_kb_config() == cfg
+
+
+# ---------------------------------------------------------------------------
+# Missing GW_INTERNAL_DOMAINS is surfaced, not swallowed
+# ---------------------------------------------------------------------------
+
+
+def test_email_sync_warns_when_no_internal_domains(monkeypatch, capfd):
+    """An empty GW_INTERNAL_DOMAINS kills the outbound branch — say so on stderr."""
+    import email_crm_sync
+
+    monkeypatch.setattr(email_crm_sync, "INTERNAL_DOMAINS", set())
+    monkeypatch.setattr(email_crm_sync, "_warned_no_internal_domains", False)
+    email_crm_sync._warn_if_no_internal_domains()
+
+    warning = capfd.readouterr().err
+    assert "NO_INTERNAL_DOMAINS" in warning
+    assert "GW_INTERNAL_DOMAINS" in warning
+
+
+def test_email_sync_warns_only_once(monkeypatch, capfd):
+    """The warning is per process, so a long sync does not flood the log."""
+    import email_crm_sync
+
+    monkeypatch.setattr(email_crm_sync, "INTERNAL_DOMAINS", set())
+    monkeypatch.setattr(email_crm_sync, "_warned_no_internal_domains", False)
+    email_crm_sync._warn_if_no_internal_domains()
+    capfd.readouterr()
+    email_crm_sync._warn_if_no_internal_domains()
+
+    assert capfd.readouterr().err == ""
+
+
+def test_email_sync_silent_when_internal_domains_configured(monkeypatch, capfd):
+    """Configured domains mean the outbound branch works — nothing to warn about."""
+    import email_crm_sync
+
+    monkeypatch.setattr(email_crm_sync, "INTERNAL_DOMAINS", {"example.test"})
+    monkeypatch.setattr(email_crm_sync, "_warned_no_internal_domains", False)
+    email_crm_sync._warn_if_no_internal_domains()
+
+    assert capfd.readouterr().err == ""

@@ -44,6 +44,7 @@ if str(_GW_LIB) not in sys.path:
 import crm  # type: ignore[import-not-found]
 import gmail  # type: ignore[import-not-found]
 import gw_config  # type: ignore[import-not-found]
+from output import output_warning  # type: ignore[import-not-found]
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -51,6 +52,10 @@ import gw_config  # type: ignore[import-not-found]
 
 # Email domains treated as internal (skipped by sync). Empty by default.
 INTERNAL_DOMAINS = gw_config.internal_domains()
+
+# Warned about once per process when INTERNAL_DOMAINS is empty, so a scheduled
+# sync logs the gap on its first run instead of every message batch.
+_warned_no_internal_domains = False
 STATE_FILE = gw_config.cache_dir() / "email-crm-sync-state.json"
 DEFAULT_LOOKBACK_DAYS = 2
 
@@ -110,6 +115,26 @@ def _extract_emails(*headers: str) -> list[str]:
             for m in re.findall(r"[\w.+-]+@[\w.-]+\.[a-zA-Z]{2,}", h):
                 addrs.append(m.lower())
     return addrs
+
+
+def _warn_if_no_internal_domains() -> None:
+    """Warn on stderr (once) when GW_INTERNAL_DOMAINS is unset.
+
+    With no internal domains, ``_is_internal`` is always False and the
+    outbound branch of ``sync`` can never fire, so only inbound activity is
+    tracked — and our own addresses are treated as external parties. That is a
+    silent half-sync, so it is surfaced rather than swallowed.
+    """
+    global _warned_no_internal_domains
+    if INTERNAL_DOMAINS or _warned_no_internal_domains:
+        return
+    _warned_no_internal_domains = True
+    output_warning(
+        "GW_INTERNAL_DOMAINS is unset — no address counts as internal, so "
+        "outbound email is not synced and your own addresses are treated as "
+        "external contacts. Set it to your sending domain(s).",
+        code="NO_INTERNAL_DOMAINS",
+    )
 
 
 def _is_internal(emails: list[str]) -> bool:
@@ -178,6 +203,7 @@ def sync(
         Stats dict: ``{processed, skipped_internal, skipped_unknown,
         skipped_already_processed, contacts_updated, dry_run}``.
     """
+    _warn_if_no_internal_domains()
     state = _load_state()
     processed_ids = set(state.get("processed_message_ids", []))
 
@@ -358,9 +384,7 @@ def _apply_inbound_updates(slug_latest: dict[str, str]) -> tuple[int, int]:
     writer = csv.DictWriter(out, fieldnames=fieldnames, lineterminator="\n", quoting=csv.QUOTE_ALL)
     writer.writeheader()
     writer.writerows(sanitized)
-    tmp = csv_path.with_suffix(".tmp")
-    tmp.write_text(out.getvalue(), encoding="utf-8")
-    tmp.replace(csv_path)
+    crm.atomic_write_text(csv_path, out.getvalue())
 
     return updated, promoted
 
@@ -402,6 +426,12 @@ def bump_recipients_last_contact(
         ``{updated: int, matched: int, error: str | None}``.
     """
     try:
+        # No warning here, deliberately. This runs inside every gmail send, in
+        # a fresh process each time, so the once-per-process guard would make
+        # it once per send — a false alarm in every log line of a campaign
+        # batch. Its message is also wrong on this path: an empty
+        # INTERNAL_DOMAINS filters nothing, so recipients are still tracked.
+        # The daily ``sync`` surfaces the misconfiguration once instead.
         recipients = _extract_emails(to or "", cc or "")
         # Filter out internal addresses (we don't track our own dates)
         external = [e for e in recipients if e.split("@", 1)[-1] not in INTERNAL_DOMAINS]
@@ -461,8 +491,6 @@ def _apply_updates_with_channel(slug_latest: dict[str, str], channel: str) -> in
     writer = csv.DictWriter(out, fieldnames=fieldnames, lineterminator="\n", quoting=csv.QUOTE_ALL)
     writer.writeheader()
     writer.writerows(sanitized)
-    tmp = csv_path.with_suffix(".tmp")
-    tmp.write_text(out.getvalue(), encoding="utf-8")
-    tmp.replace(csv_path)
+    crm.atomic_write_text(csv_path, out.getvalue())
 
     return updated

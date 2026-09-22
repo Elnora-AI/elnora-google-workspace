@@ -43,11 +43,13 @@ CRM at `<vault_path>/crm`:
 | `vault_path` | Absolute path to your vault (written by knowledge-vault) | required |
 | `crm_dir` | Subfolder under the vault that holds the CRM CSVs | `crm` |
 | `company_dir` | Optional extra prefix nested between `vault_path` and `crm_dir` | empty |
+| `investors_dir` | Optional vault subfolder, beside `crm_dir`, holding `investor-contacts.csv`; its `do_not_email=true` rows are suppressed | unset (not read) |
 
 | Variable | Purpose | Default |
 |---|---|---|
 | `GW_KB_CONFIG` | Explicit path to the knowledge-base config markdown | discovered from CWD |
 | `GW_INTERNAL_DOMAINS` | Comma-separated email domains to treat as internal (skipped by CRM sync) | empty |
+| `GW_CRM_TRACK` | Set to `off` to stop outbound sends writing to the CRM | unset (tracking on) |
 | `GW_TRANSCRIPT_DIRS` | Comma-separated meeting-transcript dirs meeting-prep scans | empty |
 | `GW_SLACK_USER_ID` | Slack user id to DM meeting briefs to | unset (prints to stdout) |
 | `GW_SLACK_CLI_BIN` | Path to a Slack CLI entry point for DM delivery | unset |
