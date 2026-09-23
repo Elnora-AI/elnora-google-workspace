@@ -31,16 +31,20 @@ Accounts are user-defined in `accounts.json` (see `gw auth list` / `gw auth logi
 Always use `--body-file -` with heredoc. Never `--body "..."` — special characters break shell quoting.
 
 ```bash
-$CLI gmail send --to EMAIL --subject "..." --body-file - [--cc "a@x.com,b@y.com"] [--thread-id TID] [--attach FILE] [--account work] <<'BODY'
+$CLI gmail send --to EMAIL --subject "..." --body-file - [--cc "a@x.com,b@y.com"] [--thread-id TID] [--attach FILE] [--no-signature] [--plain] [--account work] <<'BODY'
 Email body here.
 BODY
 
-$CLI gmail draft --to EMAIL --subject "..." --body-file - [--cc "a@x.com,b@y.com"] [--thread-id TID] [--attach FILE] [--account work] <<'BODY'
+$CLI gmail draft --to EMAIL --subject "..." --body-file - [--cc "a@x.com,b@y.com"] [--thread-id TID] [--attach FILE] [--no-signature] [--plain] [--account work] <<'BODY'
 Draft body here.
 BODY
 ```
 
 Multiple recipients: `--to` and `--cc` accept comma-separated addresses or repeated flags. Always comma-separate in one string for clarity: `--cc "a@x.com,b@y.com,c@z.com"`.
+
+Signature: the account's Gmail send-as signature is appended to the HTML part by default. `--no-signature` omits it (for a body that carries its own sign-off block). The flag works on every verb that builds a message: `send`, `draft`, the four reply verbs, `update-draft` and `attach-to-draft`.
+
+Plain text: `--plain` sends the body as a single `text/plain` part with no HTML alternative, so there is no signature and no styling, and the recipient's mail client shows it in its own default font, like a hand-typed email. Threading, To/Cc, the From display name and attachments are unchanged. Works on `send`, `draft` and the four reply verbs. Default (without the flag) is plain + HTML with the signature.
 
 Response: `{"sent":true,"id":"MSG_ID","threadId":"TID"}` or `{"drafted":true,"id":"DRAFT_ID","messageId":"MSG_ID"}`
 
@@ -71,26 +75,26 @@ Works on: `send`, `draft`, `draft-reply`. Any file type. Uses MIME multipart/mix
 
 ### Reply
 
-All four reply commands preserve the thread, add a `Re:` subject prefix if missing, and include your display name + signature from `sendAs`. **Original Cc is auto-preserved** on plain reply/draft-reply (minus your own address). Override with `--cc "a@x,b@y"` or clear with `--no-cc`.
+All four reply commands preserve the thread, add a `Re:` subject prefix if missing, and include your display name + signature from `sendAs` (`--no-signature` omits the signature; `--plain` sends plain text only, with no HTML and so no signature). **Original Cc is auto-preserved** on plain reply/draft-reply (minus your own address). Override with `--cc "a@x,b@y"` or clear with `--no-cc`.
 
 ```bash
 # Plain reply (To = original sender, Cc preserved from original)
-$CLI gmail reply MESSAGE_ID --body-file - [--cc "a@x,b@y"] [--no-cc] [--to EMAIL] [--attach FILE] [--account work] <<'BODY'
+$CLI gmail reply MESSAGE_ID --body-file - [--cc "a@x,b@y"] [--no-cc] [--to EMAIL] [--attach FILE] [--no-signature] [--plain] [--account work] <<'BODY'
 Reply text.
 BODY
 
 # Plain draft reply — does NOT send
-$CLI gmail draft-reply MESSAGE_ID --body-file - [--cc "a@x,b@y"] [--no-cc] [--to EMAIL] [--attach FILE] [--account work] <<'BODY'
+$CLI gmail draft-reply MESSAGE_ID --body-file - [--cc "a@x,b@y"] [--no-cc] [--to EMAIL] [--attach FILE] [--no-signature] [--plain] [--account work] <<'BODY'
 Draft reply text.
 BODY
 
 # Reply-all: To = original sender, Cc = original To + Cc, deduped, minus self
-$CLI gmail reply-all MESSAGE_ID --body-file - [--cc "..."] [--no-cc] [--to EMAIL] [--attach FILE] <<'BODY'
+$CLI gmail reply-all MESSAGE_ID --body-file - [--cc "..."] [--no-cc] [--to EMAIL] [--attach FILE] [--no-signature] [--plain] <<'BODY'
 Reply to everyone on the thread.
 BODY
 
 # Draft reply-all — does NOT send
-$CLI gmail draft-reply-all MESSAGE_ID --body-file - [--cc "..."] [--no-cc] [--to EMAIL] [--attach FILE] <<'BODY'
+$CLI gmail draft-reply-all MESSAGE_ID --body-file - [--cc "..."] [--no-cc] [--to EMAIL] [--attach FILE] [--no-signature] [--plain] <<'BODY'
 Draft reply to everyone.
 BODY
 ```
@@ -138,7 +142,10 @@ $CLI gmail list-drafts [--query "from:someone@example.com"] [--limit 20] --compa
 # Inspect a specific draft
 $CLI gmail get-draft DRAFT_ID --compact
 
-# Attach a file to an existing draft (preserves body, subject, recipients, existing attachments)
+# Attach a file to an existing draft (preserves body, subject, recipients, existing attachments).
+# update-draft and attach-to-draft rebuild the message and re-append the signature: pass
+# --no-signature again on a draft that was created without one. They always rebuild the
+# HTML part, so a draft created with --plain gains one.
 $CLI gmail attach-to-draft DRAFT_ID --attach /path/to/report.pdf
 
 # Update any field of an existing draft — omitted fields are preserved
@@ -148,6 +155,7 @@ Replacement body.
 BODY
 $CLI gmail update-draft DRAFT_ID --attach /path/to/file.pdf                   # replaces existing attachments
 $CLI gmail update-draft DRAFT_ID --attach /path/to/file.pdf --append-attachments  # keeps existing + adds new
+$CLI gmail update-draft DRAFT_ID --no-signature   # stops re-appending the send-as signature
 
 # Send or discard
 $CLI gmail send-draft DRAFT_ID [--account work]

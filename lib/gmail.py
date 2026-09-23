@@ -114,8 +114,14 @@ def _build_message(
     references: str | None = None,
     thread_id: str | None = None,
     attachments: list[str] | None = None,
+    plain: bool = False,
 ) -> dict:
-    """Build a Gmail API message payload (multipart: plain + HTML, optional attachments)."""
+    """Build a Gmail API message payload (multipart: plain + HTML, optional attachments).
+
+    plain=True sends the body as one text/plain part with no HTML alternative,
+    so there is no signature and no styling: the recipient's client shows it
+    in its own default font, like a hand-typed email.
+    """
     # Validate each recipient — both `to` and `cc` support comma-separated lists
     # (required for reply-all) and `Display Name <email>` form (required when
     # preserving a reply draft's existing To/Cc headers). We validate the bare
@@ -136,18 +142,21 @@ def _build_message(
             if addr:
                 validate_email(addr, field="cc")
 
-    # Build multipart/alternative with plain text + HTML
-    alt_part = MIMEMultipart("alternative")
-    html_body = _plain_to_html(body)
-    if signature_html:
-        html_body += '<br><div class="gmail_signature">' + signature_html + "</div>"
-    alt_part.attach(MIMEText(body, "plain", "utf-8"))
-    alt_part.attach(MIMEText(html_body, "html", "utf-8"))
+    if plain:
+        body_part = MIMEText(body, "plain", "utf-8")
+    else:
+        # Build multipart/alternative with plain text + HTML
+        body_part = MIMEMultipart("alternative")
+        html_body = _plain_to_html(body)
+        if signature_html:
+            html_body += '<br><div class="gmail_signature">' + signature_html + "</div>"
+        body_part.attach(MIMEText(body, "plain", "utf-8"))
+        body_part.attach(MIMEText(html_body, "html", "utf-8"))
 
-    # If attachments, wrap in multipart/mixed; otherwise use alt_part as the message
+    # If attachments, wrap in multipart/mixed; otherwise use body_part as the message
     if attachments:
         msg = MIMEMultipart("mixed")
-        msg.attach(alt_part)
+        msg.attach(body_part)
         for filepath in attachments:
             filepath = os.path.expanduser(filepath)
             if not os.path.isfile(filepath):
@@ -167,7 +176,7 @@ def _build_message(
             attachment.add_header("Content-Disposition", "attachment", filename=filename)
             msg.attach(attachment)
     else:
-        msg = alt_part
+        msg = body_part
 
     msg["to"] = _sanitize_header(to)
     msg["subject"] = _sanitize_header(subject)
@@ -293,6 +302,8 @@ def send(
     thread_id: str | None = None,
     account: str | None = None,
     attachments: list[str] | None = None,
+    no_signature: bool = False,
+    plain: bool = False,
 ) -> dict:
     """Send an email. Pass thread_id to send as a reply in an existing thread."""
     service = _get_service(account)
@@ -301,9 +312,10 @@ def send(
         to, subject, body, cc=cc,
         from_name=send_as.get("displayName"),
         from_email=send_as.get("email"),
-        signature_html=send_as.get("signature"),
+        signature_html=None if no_signature else send_as.get("signature"),
         thread_id=thread_id,
         attachments=attachments,
+        plain=plain,
     )
     try:
         result = service.users().messages().send(userId="me", body=message).execute()
@@ -327,6 +339,8 @@ def draft(
     thread_id: str | None = None,
     account: str | None = None,
     attachments: list[str] | None = None,
+    no_signature: bool = False,
+    plain: bool = False,
 ) -> dict:
     """Create a draft. Pass thread_id to draft as a reply in an existing thread."""
     service = _get_service(account)
@@ -335,9 +349,10 @@ def draft(
         to, subject, body, cc=cc,
         from_name=send_as.get("displayName"),
         from_email=send_as.get("email"),
-        signature_html=send_as.get("signature"),
+        signature_html=None if no_signature else send_as.get("signature"),
         thread_id=thread_id,
         attachments=attachments,
+        plain=plain,
     )
     try:
         result = service.users().drafts().create(
@@ -579,6 +594,8 @@ def _prepare_reply_payload(
     reply_all: bool,
     attachments: list[str] | None,
     context_label: str,
+    no_signature: bool = False,
+    plain: bool = False,
 ) -> tuple[dict, str | None, str]:
     """Fetch the original message and compute the full reply MIME payload.
 
@@ -703,11 +720,12 @@ def _prepare_reply_payload(
         cc=final_cc,
         from_name=send_as.get("displayName"),
         from_email=send_as.get("email"),
-        signature_html=send_as.get("signature"),
+        signature_html=None if no_signature else send_as.get("signature"),
         in_reply_to=message_id_header,
         references=message_id_header,
         thread_id=original.get("threadId"),
         attachments=attachments,
+        plain=plain,
     )
     return message, original.get("threadId"), final_to
 
@@ -720,6 +738,8 @@ def reply(
     no_cc: bool = False,
     account: str | None = None,
     attachments: list[str] | None = None,
+    no_signature: bool = False,
+    plain: bool = False,
 ) -> dict:
     """Reply to a message. Preserves the thread and the original Cc list.
 
@@ -739,6 +759,8 @@ def reply(
         service, message_id, body,
         to=to, cc=cc, no_cc=no_cc, reply_all=False,
         attachments=attachments, context_label="reply",
+        no_signature=no_signature,
+        plain=plain,
     )
     try:
         result = service.users().messages().send(userId="me", body=message).execute()
@@ -763,6 +785,8 @@ def draft_reply(
     no_cc: bool = False,
     account: str | None = None,
     attachments: list[str] | None = None,
+    no_signature: bool = False,
+    plain: bool = False,
 ) -> dict:
     """Create a draft reply. Preserves the thread and the original Cc list.
 
@@ -773,6 +797,8 @@ def draft_reply(
         service, message_id, body,
         to=to, cc=cc, no_cc=no_cc, reply_all=False,
         attachments=attachments, context_label="draft_reply",
+        no_signature=no_signature,
+        plain=plain,
     )
     try:
         result = service.users().drafts().create(
@@ -798,6 +824,8 @@ def reply_all(
     no_cc: bool = False,
     account: str | None = None,
     attachments: list[str] | None = None,
+    no_signature: bool = False,
+    plain: bool = False,
 ) -> dict:
     """Reply-all: send to the original sender with everyone else in Cc.
 
@@ -811,6 +839,8 @@ def reply_all(
         service, message_id, body,
         to=to, cc=cc, no_cc=no_cc, reply_all=True,
         attachments=attachments, context_label="reply_all",
+        no_signature=no_signature,
+        plain=plain,
     )
     try:
         result = service.users().messages().send(userId="me", body=message).execute()
@@ -835,6 +865,8 @@ def draft_reply_all(
     no_cc: bool = False,
     account: str | None = None,
     attachments: list[str] | None = None,
+    no_signature: bool = False,
+    plain: bool = False,
 ) -> dict:
     """Draft a reply-all. Same semantics as `reply_all()`, but creates a draft."""
     service = _get_service(account)
@@ -842,6 +874,8 @@ def draft_reply_all(
         service, message_id, body,
         to=to, cc=cc, no_cc=no_cc, reply_all=True,
         attachments=attachments, context_label="draft_reply_all",
+        no_signature=no_signature,
+        plain=plain,
     )
     try:
         result = service.users().drafts().create(
@@ -913,6 +947,7 @@ def update_draft(
     attachments: list[str] | None = None,
     append_attachments: bool = False,
     account: str | None = None,
+    no_signature: bool = False,
 ) -> dict:
     """Update an existing draft with merge semantics.
 
@@ -931,7 +966,8 @@ def update_draft(
     Note: the HTML body is re-rendered from the plain text via our own
     formatter. If the draft was edited in Gmail's web UI with rich formatting,
     that formatting will be normalized back to our plain-to-HTML output.
-    The plain text body itself is preserved byte-for-byte.
+    The plain text body itself is preserved byte-for-byte. The send-as
+    signature is re-appended on every update unless no_signature=True.
     """
     if (
         body is None
@@ -939,10 +975,11 @@ def update_draft(
         and to is None
         and cc is None
         and attachments is None
+        and not no_signature
     ):
         raise ValidationError(
             "update_draft requires at least one field to change.",
-            suggestion="Pass --body, --subject, --to, --cc, or --attach.",
+            suggestion="Pass --body, --subject, --to, --cc, --attach, or --no-signature.",
         )
 
     service = _get_service(account)
@@ -999,7 +1036,7 @@ def update_draft(
             cc=merged_cc,
             from_name=send_as.get("displayName"),
             from_email=send_as.get("email"),
-            signature_html=send_as.get("signature"),
+            signature_html=None if no_signature else send_as.get("signature"),
             thread_id=thread_id,
             attachments=merged_attachments if merged_attachments else None,
         )

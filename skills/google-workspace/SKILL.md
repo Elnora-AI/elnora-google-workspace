@@ -30,6 +30,8 @@ Routes to service-specific skills. Use the right skill for your task:
 
 **Attachments are supported** on every sending verb: `send`, `draft`, `draft-reply`, `draft-reply-all`, `reply`, `reply-all`, `update-draft`, and `attach-to-draft`. Use `--attach /path/to/file` and repeat for multiple files. See **gw-gmail** skill for examples.
 
+**Signature is appended by default** on every sending verb (the account's Gmail send-as signature). Pass `--no-signature` to omit it, or `--plain` on `send`, `draft` and the reply verbs to send plain text only (no HTML, signature or styling). See **gw-gmail**.
+
 **Draft modification is supported.** Full lifecycle: `list-drafts` → `get-draft` → `update-draft` / `attach-to-draft` → `send-draft` or `delete-draft`. See **gw-gmail**.
 
 **Reply auto-preserves original Cc** on `reply` and `draft-reply`. Reply-all expands Cc to include original To recipients. See **gw-gmail** for the `--cc` / `--no-cc` override semantics.

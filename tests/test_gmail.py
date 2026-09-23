@@ -379,7 +379,7 @@ def _make_original_message(
     }
 
 
-def _mock_send_as(mock_svc, email: str = "me@example.com", display_name: str = "Me"):
+def _mock_send_as(mock_svc, email: str = "me@example.com", display_name: str = "Me", signature: str = ""):
     """Configure the sendAs list API to return a primary matching our email."""
     mock_svc.users().settings().sendAs().list().execute.return_value = {
         "sendAs": [
@@ -387,7 +387,7 @@ def _mock_send_as(mock_svc, email: str = "me@example.com", display_name: str = "
                 "isPrimary": True,
                 "displayName": display_name,
                 "sendAsEmail": email,
-                "signature": "",
+                "signature": signature,
             }
         ]
     }
@@ -659,6 +659,156 @@ def test_reply_applies_send_as_signature(patch_build_service):
     headers, _, _ = _decode_sent_message(mock_svc, api="drafts")
     assert "Me Elnora" in headers["from"]
     assert "me@example.com" in headers["from"]
+
+
+# ---------------------------------------------------------------------------
+# no_signature: opt out of the send-as signature
+# ---------------------------------------------------------------------------
+
+_SIGNATURE = "<p>-- My Signature</p>"
+
+
+def _html_part(msg_payload: dict) -> str:
+    """Return the decoded text/html part of a raw Gmail message payload."""
+    import base64 as _b64
+    from email import message_from_bytes
+
+    parsed = message_from_bytes(_b64.urlsafe_b64decode(msg_payload["raw"].encode()))
+    for part in parsed.walk():
+        if part.get_content_type() == "text/html":
+            return part.get_payload(decode=True).decode("utf-8")
+    return ""
+
+
+@pytest.mark.parametrize("no_signature", [False, True])
+@pytest.mark.parametrize("fn, api", [("send", "send"), ("draft", "drafts")])
+def test_send_and_draft_signature_opt_out(patch_build_service, fn, api, no_signature):
+    gmail_mod, mock_svc = patch_build_service
+    _mock_send_as(mock_svc, signature=_SIGNATURE)
+    mock_svc.users().messages().send().execute.return_value = {"id": "m", "threadId": "t"}
+    mock_svc.users().drafts().create().execute.return_value = {"id": "d", "message": {"id": "m"}}
+    kwargs = {"no_signature": True} if no_signature else {}
+
+    getattr(gmail_mod, fn)(to="user@example.com", subject="Hi", body="Hello", **kwargs)
+
+    _, plain, payload = _decode_sent_message(mock_svc, api=api)
+    html = _html_part(payload)
+    assert "Hello" in html
+    assert ("My Signature" in html) is not no_signature
+    assert "My Signature" not in plain
+
+
+@pytest.mark.parametrize("no_signature", [False, True])
+@pytest.mark.parametrize("fn, api", [
+    ("reply", "send"),
+    ("reply_all", "send"),
+    ("draft_reply", "drafts"),
+    ("draft_reply_all", "drafts"),
+])
+def test_reply_signature_opt_out(patch_build_service, fn, api, no_signature):
+    gmail_mod, mock_svc = patch_build_service
+    _mock_send_as(mock_svc, signature=_SIGNATURE)
+    mock_svc.users().messages().get().execute.return_value = _make_original_message()
+    mock_svc.users().messages().send().execute.return_value = {"id": "m", "threadId": "thread-orig"}
+    mock_svc.users().drafts().create().execute.return_value = {"id": "d", "message": {"id": "m"}}
+    kwargs = {"no_signature": True} if no_signature else {}
+
+    getattr(gmail_mod, fn)(message_id="msg-orig", body="thanks", **kwargs)
+
+    headers, _, payload = _decode_sent_message(mock_svc, api=api)
+    assert ("My Signature" in _html_part(payload)) is not no_signature
+    # Threading and display name are unaffected by the opt-out
+    assert headers["in-reply-to"] == "<msg-orig@mail>"
+    assert "Me" in headers["from"]
+
+
+# ---------------------------------------------------------------------------
+# plain: one text/plain part, no HTML alternative
+# ---------------------------------------------------------------------------
+
+_BODY = "Hello — see you Tuesday."
+
+
+def _content_types(msg_payload: dict) -> list[str]:
+    """Return the content type of every MIME part, outermost first."""
+    import base64 as _b64
+    from email import message_from_bytes
+
+    parsed = message_from_bytes(_b64.urlsafe_b64decode(msg_payload["raw"].encode()))
+    return [part.get_content_type() for part in parsed.walk()]
+
+
+def _assert_structure(headers: dict, plain_text: str, payload: dict, plain: bool) -> None:
+    """Default is plain + HTML alternatives with the signature; plain is a single utf-8 text/plain part."""
+    if plain:
+        assert _content_types(payload) == ["text/plain"]
+        assert headers["content-type"] == 'text/plain; charset="utf-8"'
+        assert _html_part(payload) == ""
+    else:
+        assert _content_types(payload) == ["multipart/alternative", "text/plain", "text/html"]
+        assert "My Signature" in _html_part(payload)
+    assert plain_text.strip() == _BODY
+
+
+@pytest.mark.parametrize("plain", [False, True])
+@pytest.mark.parametrize("fn, api", [("send", "send"), ("draft", "drafts")])
+def test_send_and_draft_plain(patch_build_service, fn, api, plain):
+    gmail_mod, mock_svc = patch_build_service
+    _mock_send_as(mock_svc, signature=_SIGNATURE)
+    mock_svc.users().messages().send().execute.return_value = {"id": "m", "threadId": "t"}
+    mock_svc.users().drafts().create().execute.return_value = {"id": "d", "message": {"id": "m"}}
+    kwargs = {"plain": True} if plain else {}
+
+    getattr(gmail_mod, fn)(to="user@example.com", subject="Hi", body=_BODY, cc="c@example.com", **kwargs)
+
+    headers, plain_text, payload = _decode_sent_message(mock_svc, api=api)
+    _assert_structure(headers, plain_text, payload, plain)
+    assert headers["to"] == "user@example.com"
+    assert headers["cc"] == "c@example.com"
+    assert headers["from"] == "Me <me@example.com>"
+
+
+@pytest.mark.parametrize("plain", [False, True])
+@pytest.mark.parametrize("fn, api", [
+    ("reply", "send"),
+    ("reply_all", "send"),
+    ("draft_reply", "drafts"),
+    ("draft_reply_all", "drafts"),
+])
+def test_reply_plain_keeps_threading(patch_build_service, fn, api, plain):
+    gmail_mod, mock_svc = patch_build_service
+    _mock_send_as(mock_svc, signature=_SIGNATURE)
+    mock_svc.users().messages().get().execute.return_value = _make_original_message()
+    mock_svc.users().messages().send().execute.return_value = {"id": "m", "threadId": "thread-orig"}
+    mock_svc.users().drafts().create().execute.return_value = {"id": "d", "message": {"id": "m"}}
+    kwargs = {"plain": True} if plain else {}
+
+    getattr(gmail_mod, fn)(message_id="msg-orig", body=_BODY, **kwargs)
+
+    headers, plain_text, payload = _decode_sent_message(mock_svc, api=api)
+    _assert_structure(headers, plain_text, payload, plain)
+    assert headers["in-reply-to"] == "<msg-orig@mail>"
+    assert headers["references"] == "<msg-orig@mail>"
+    assert headers["subject"] == "Re: Original subject"
+    assert headers["to"] == "alice@x.com"
+    assert "dave@z.com" in headers["cc"]
+    assert headers["from"] == "Me <me@example.com>"
+    assert payload["threadId"] == "thread-orig"
+
+
+def test_plain_with_attachment_is_mixed_with_text_body(patch_build_service, tmp_path):
+    """Attachments still wrap the body in multipart/mixed; the body is the lone text/plain part."""
+    gmail_mod, mock_svc = patch_build_service
+    _mock_send_as(mock_svc, signature=_SIGNATURE)
+    mock_svc.users().messages().send().execute.return_value = {"id": "m", "threadId": "t"}
+    report = tmp_path / "report.pdf"
+    report.write_bytes(b"%PDF-1.4")
+
+    gmail_mod.send(to="user@example.com", subject="Hi", body=_BODY, attachments=[str(report)], plain=True)
+
+    _, plain_text, payload = _decode_sent_message(mock_svc, api="send")
+    assert _content_types(payload) == ["multipart/mixed", "text/plain", "application/pdf"]
+    assert plain_text.strip() == _BODY
 
 
 # ---------------------------------------------------------------------------
@@ -1156,6 +1306,44 @@ def test_update_draft_preserves_thread_id(patch_build_service):
     assert real_call.kwargs["body"]["message"]["threadId"] == "thread-xyz"
 
 
+@pytest.mark.parametrize("no_signature", [False, True])
+def test_update_draft_signature_opt_out(patch_build_service, no_signature):
+    gmail_mod, mock_svc = patch_build_service
+    _mock_send_as(mock_svc, signature=_SIGNATURE)
+    mock_svc.users().drafts().get().execute.return_value = _make_existing_draft()
+    mock_svc.users().drafts().update().execute.return_value = {
+        "id": "r-1",
+        "message": {"id": "msg-1"},
+    }
+    kwargs = {"no_signature": True} if no_signature else {}
+
+    gmail_mod.update_draft(draft_id="r-1", subject="updated", **kwargs)
+
+    real_call = next(
+        c for c in reversed(mock_svc.users().drafts().update.call_args_list)
+        if c.kwargs.get("id") == "r-1" and c.kwargs.get("body") is not None
+    )
+    html = _html_part(real_call.kwargs["body"]["message"])
+    assert ("My Signature" in html) is not no_signature
+
+
+def test_update_draft_no_signature_alone_is_a_change(patch_build_service):
+    """Stripping the signature from an existing draft needs no other field."""
+    gmail_mod, mock_svc = patch_build_service
+    _mock_send_as(mock_svc, signature=_SIGNATURE)
+    mock_svc.users().drafts().get().execute.return_value = _make_existing_draft()
+    mock_svc.users().drafts().update().execute.return_value = {
+        "id": "r-1",
+        "message": {"id": "msg-1"},
+    }
+
+    result = gmail_mod.update_draft(draft_id="r-1", no_signature=True)
+
+    assert result["updated"] is True
+    _, plain_body, _ = _decode_update_payload(mock_svc, "r-1")
+    assert plain_body.strip() == "existing body"
+
+
 # ---------------------------------------------------------------------------
 # attach-to-draft (CLI sugar command)
 # ---------------------------------------------------------------------------
@@ -1198,6 +1386,72 @@ def test_attach_to_draft_cli_delegates_with_append_true(tmp_path):
     # Output includes the attached count annotation
     output_text = "".join(captured)
     assert '"attached":1' in output_text or '"attached": 1' in output_text
+
+
+@pytest.mark.parametrize("flag", [False, True])
+@pytest.mark.parametrize("args, lib_fn", [
+    (["send", "--to", "a@example.com", "--subject", "s", "--body", "b"], "send"),
+    (["draft", "--to", "a@example.com", "--subject", "s", "--body", "b"], "draft"),
+    (["reply", "m-1", "--body", "b"], "reply"),
+    (["reply-all", "m-1", "--body", "b"], "reply_all"),
+    (["draft-reply", "m-1", "--body", "b"], "draft_reply"),
+    (["draft-reply-all", "m-1", "--body", "b"], "draft_reply_all"),
+    (["update-draft", "r-1", "--subject", "s"], "update_draft"),
+    (["attach-to-draft", "r-1", "--attach", "report.pdf"], "update_draft"),
+])
+def test_cli_no_signature_flag_threads_through(args, lib_fn, flag):
+    """--no-signature reaches the library call; without it, no_signature is False."""
+    from click.testing import CliRunner
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "cli"))
+    from gw import cli as gw_cli  # type: ignore
+    import output as output_mod
+
+    import gmail as gmail_mod
+    called_with: dict = {}
+
+    def fake(**kwargs):
+        called_with.update(kwargs)
+        return {"ok": True}
+
+    argv = ["gmail", *args, "--compact"] + (["--no-signature"] if flag else [])
+    with patch.object(gmail_mod, lib_fn, side_effect=fake), \
+         patch.object(output_mod, "_write_stdout"):
+        result = CliRunner().invoke(gw_cli, argv, catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    assert called_with["no_signature"] is flag
+
+
+@pytest.mark.parametrize("flag", [False, True])
+@pytest.mark.parametrize("args, lib_fn", [
+    (["send", "--to", "a@example.com", "--subject", "s", "--body", "b"], "send"),
+    (["draft", "--to", "a@example.com", "--subject", "s", "--body", "b"], "draft"),
+    (["reply", "m-1", "--body", "b"], "reply"),
+    (["reply-all", "m-1", "--body", "b"], "reply_all"),
+    (["draft-reply", "m-1", "--body", "b"], "draft_reply"),
+    (["draft-reply-all", "m-1", "--body", "b"], "draft_reply_all"),
+])
+def test_cli_plain_flag_threads_through(args, lib_fn, flag):
+    """--plain reaches the library call; without it, plain is False."""
+    from click.testing import CliRunner
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "cli"))
+    from gw import cli as gw_cli  # type: ignore
+    import output as output_mod
+
+    import gmail as gmail_mod
+    called_with: dict = {}
+
+    def fake(**kwargs):
+        called_with.update(kwargs)
+        return {"ok": True}
+
+    argv = ["gmail", *args, "--compact"] + (["--plain"] if flag else [])
+    with patch.object(gmail_mod, lib_fn, side_effect=fake), \
+         patch.object(output_mod, "_write_stdout"):
+        result = CliRunner().invoke(gw_cli, argv, catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    assert called_with["plain"] is flag
 
 
 # ---------------------------------------------------------------------------
