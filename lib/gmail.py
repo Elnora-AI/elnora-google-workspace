@@ -115,13 +115,23 @@ def _build_message(
     thread_id: str | None = None,
     attachments: list[str] | None = None,
     plain: bool = False,
+    html_body: str | None = None,
 ) -> dict:
     """Build a Gmail API message payload (multipart: plain + HTML, optional attachments).
 
     plain=True sends the body as one text/plain part with no HTML alternative,
     so there is no signature and no styling: the recipient's client shows it
     in its own default font, like a hand-typed email.
+
+    html_body is sent verbatim as the text/html alternative to body: no
+    signature, no wrapper styling, no conversion. It conflicts with plain.
     """
+    if plain and html_body is not None:
+        raise ValidationError(
+            "html_body and plain are mutually exclusive: plain sends no HTML part.",
+            suggestion="Pass one or the other.",
+        )
+
     # Validate each recipient — both `to` and `cc` support comma-separated lists
     # (required for reply-all) and `Display Name <email>` form (required when
     # preserving a reply draft's existing To/Cc headers). We validate the bare
@@ -147,9 +157,10 @@ def _build_message(
     else:
         # Build multipart/alternative with plain text + HTML
         body_part = MIMEMultipart("alternative")
-        html_body = _plain_to_html(body)
-        if signature_html:
-            html_body += '<br><div class="gmail_signature">' + signature_html + "</div>"
+        if html_body is None:
+            html_body = _plain_to_html(body)
+            if signature_html:
+                html_body += '<br><div class="gmail_signature">' + signature_html + "</div>"
         body_part.attach(MIMEText(body, "plain", "utf-8"))
         body_part.attach(MIMEText(html_body, "html", "utf-8"))
 
@@ -304,6 +315,7 @@ def send(
     attachments: list[str] | None = None,
     no_signature: bool = False,
     plain: bool = False,
+    html_body: str | None = None,
 ) -> dict:
     """Send an email. Pass thread_id to send as a reply in an existing thread."""
     service = _get_service(account)
@@ -316,6 +328,7 @@ def send(
         thread_id=thread_id,
         attachments=attachments,
         plain=plain,
+        html_body=html_body,
     )
     try:
         result = service.users().messages().send(userId="me", body=message).execute()
@@ -341,6 +354,7 @@ def draft(
     attachments: list[str] | None = None,
     no_signature: bool = False,
     plain: bool = False,
+    html_body: str | None = None,
 ) -> dict:
     """Create a draft. Pass thread_id to draft as a reply in an existing thread."""
     service = _get_service(account)
@@ -353,6 +367,7 @@ def draft(
         thread_id=thread_id,
         attachments=attachments,
         plain=plain,
+        html_body=html_body,
     )
     try:
         result = service.users().drafts().create(
@@ -596,6 +611,7 @@ def _prepare_reply_payload(
     context_label: str,
     no_signature: bool = False,
     plain: bool = False,
+    html_body: str | None = None,
 ) -> tuple[dict, str | None, str]:
     """Fetch the original message and compute the full reply MIME payload.
 
@@ -726,6 +742,7 @@ def _prepare_reply_payload(
         thread_id=original.get("threadId"),
         attachments=attachments,
         plain=plain,
+        html_body=html_body,
     )
     return message, original.get("threadId"), final_to
 
@@ -740,6 +757,7 @@ def reply(
     attachments: list[str] | None = None,
     no_signature: bool = False,
     plain: bool = False,
+    html_body: str | None = None,
 ) -> dict:
     """Reply to a message. Preserves the thread and the original Cc list.
 
@@ -761,6 +779,7 @@ def reply(
         attachments=attachments, context_label="reply",
         no_signature=no_signature,
         plain=plain,
+        html_body=html_body,
     )
     try:
         result = service.users().messages().send(userId="me", body=message).execute()
@@ -787,6 +806,7 @@ def draft_reply(
     attachments: list[str] | None = None,
     no_signature: bool = False,
     plain: bool = False,
+    html_body: str | None = None,
 ) -> dict:
     """Create a draft reply. Preserves the thread and the original Cc list.
 
@@ -799,6 +819,7 @@ def draft_reply(
         attachments=attachments, context_label="draft_reply",
         no_signature=no_signature,
         plain=plain,
+        html_body=html_body,
     )
     try:
         result = service.users().drafts().create(
@@ -826,6 +847,7 @@ def reply_all(
     attachments: list[str] | None = None,
     no_signature: bool = False,
     plain: bool = False,
+    html_body: str | None = None,
 ) -> dict:
     """Reply-all: send to the original sender with everyone else in Cc.
 
@@ -841,6 +863,7 @@ def reply_all(
         attachments=attachments, context_label="reply_all",
         no_signature=no_signature,
         plain=plain,
+        html_body=html_body,
     )
     try:
         result = service.users().messages().send(userId="me", body=message).execute()
@@ -867,6 +890,7 @@ def draft_reply_all(
     attachments: list[str] | None = None,
     no_signature: bool = False,
     plain: bool = False,
+    html_body: str | None = None,
 ) -> dict:
     """Draft a reply-all. Same semantics as `reply_all()`, but creates a draft."""
     service = _get_service(account)
@@ -876,6 +900,7 @@ def draft_reply_all(
         attachments=attachments, context_label="draft_reply_all",
         no_signature=no_signature,
         plain=plain,
+        html_body=html_body,
     )
     try:
         result = service.users().drafts().create(
