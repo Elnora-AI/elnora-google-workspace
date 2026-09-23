@@ -50,6 +50,13 @@ All notable changes to this project are documented here. The format is based on
   unaffected. An empty (freshly-scaffolded) CRM now syncs as a clean no-op instead of
   reporting an error.
 
+## [1.5.0](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.4.0...v1.5.0) (2026-09-23)
+
+
+### Features
+
+* **gmail:** add --html-body to send a caller-supplied HTML alternative ([#53](https://github.com/Elnora-AI/elnora-google-workspace/issues/53)) ([fd3e5d7](https://github.com/Elnora-AI/elnora-google-workspace/commit/fd3e5d77af9a04fddcef0e0812fe65e7cdc98dc1))
+
 ## [1.4.0](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.3.2...v1.4.0) (2026-09-23)
 
 
