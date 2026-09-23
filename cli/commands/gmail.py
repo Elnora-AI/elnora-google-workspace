@@ -50,15 +50,16 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @click.option("--cc", multiple=True, help="CC recipient(s) (repeat or comma-separate for multiple)")
     @click.option("--thread-id", "thread_id", default=None, help="Thread ID to reply in (preserves thread)")
     @click.option("--attach", multiple=True, help="File path to attach (repeat for multiple)")
+    @click.option("--no-signature", "no_signature", is_flag=True, default=False, help="Omit the Gmail send-as signature.")
     @account_option
     @compact_option
-    def send(to, subject, body, body_file, cc, thread_id, attach, account, compact):
+    def send(to, subject, body, body_file, cc, thread_id, attach, no_signature, account, compact):
         """Send an email. Use --thread-id to send as a reply in an existing thread."""
         import gmail as gmail_lib
         with _handle_errors(compact):
             resolved_body = _resolve_body(body, body_file)
             attachments = list(attach) if attach else None
-            result = gmail_lib.send(to=_merge_addresses(to), subject=subject, body=resolved_body, cc=_merge_addresses(cc), thread_id=thread_id, account=account, attachments=attachments)
+            result = gmail_lib.send(to=_merge_addresses(to), subject=subject, body=resolved_body, cc=_merge_addresses(cc), thread_id=thread_id, account=account, attachments=attachments, no_signature=no_signature)
             output_success(result, compact=compact)
 
     @gmail.command()
@@ -69,15 +70,16 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @click.option("--cc", multiple=True, help="CC recipient(s) (repeat or comma-separate for multiple)")
     @click.option("--thread-id", "thread_id", default=None, help="Thread ID to reply in (preserves thread)")
     @click.option("--attach", multiple=True, help="File path to attach (repeat for multiple)")
+    @click.option("--no-signature", "no_signature", is_flag=True, default=False, help="Omit the Gmail send-as signature.")
     @account_option
     @compact_option
-    def draft(to, subject, body, body_file, cc, thread_id, attach, account, compact):
+    def draft(to, subject, body, body_file, cc, thread_id, attach, no_signature, account, compact):
         """Create an email draft. Use --thread-id to draft as a reply in an existing thread."""
         import gmail as gmail_lib
         with _handle_errors(compact):
             resolved_body = _resolve_body(body, body_file)
             attachments = list(attach) if attach else None
-            result = gmail_lib.draft(to=_merge_addresses(to), subject=subject, body=resolved_body, cc=_merge_addresses(cc), thread_id=thread_id, account=account, attachments=attachments)
+            result = gmail_lib.draft(to=_merge_addresses(to), subject=subject, body=resolved_body, cc=_merge_addresses(cc), thread_id=thread_id, account=account, attachments=attachments, no_signature=no_signature)
             output_success(result, compact=compact)
 
     @gmail.command(name="list")
@@ -123,9 +125,10 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @click.option("--cc", default=None, help="Override Cc list (default: preserve original Cc). Empty string clears.")
     @click.option("--no-cc", "no_cc", is_flag=True, default=False, help="Force Cc empty (conflicts with --cc).")
     @click.option("--attach", multiple=True, help="File path to attach (repeat for multiple)")
+    @click.option("--no-signature", "no_signature", is_flag=True, default=False, help="Omit the Gmail send-as signature.")
     @account_option
     @compact_option
-    def reply(message_id, body, body_file, to, cc, no_cc, attach, account, compact):
+    def reply(message_id, body, body_file, to, cc, no_cc, attach, no_signature, account, compact):
         """Reply to a message. Preserves the thread and auto-preserves original Cc recipients."""
         import gmail as gmail_lib
         with _handle_errors(compact):
@@ -139,6 +142,7 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
                 no_cc=no_cc,
                 account=account,
                 attachments=attachments,
+                no_signature=no_signature,
             )
             output_success(result, compact=compact)
 
@@ -150,9 +154,10 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @click.option("--cc", default=None, help="Override Cc list (default: original To + Cc minus self).")
     @click.option("--no-cc", "no_cc", is_flag=True, default=False, help="Force Cc empty (conflicts with --cc).")
     @click.option("--attach", multiple=True, help="File path to attach (repeat for multiple)")
+    @click.option("--no-signature", "no_signature", is_flag=True, default=False, help="Omit the Gmail send-as signature.")
     @account_option
     @compact_option
-    def reply_all_cmd(message_id, body, body_file, to, cc, no_cc, attach, account, compact):
+    def reply_all_cmd(message_id, body, body_file, to, cc, no_cc, attach, no_signature, account, compact):
         """Reply-all: send to the original sender with everyone else (original To + Cc, minus self) in Cc."""
         import gmail as gmail_lib
         with _handle_errors(compact):
@@ -166,6 +171,7 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
                 no_cc=no_cc,
                 account=account,
                 attachments=attachments,
+                no_signature=no_signature,
             )
             output_success(result, compact=compact)
 
@@ -177,9 +183,10 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @click.option("--cc", default=None, help="Override Cc list (default: preserve original Cc). Empty string clears.")
     @click.option("--no-cc", "no_cc", is_flag=True, default=False, help="Force Cc empty (conflicts with --cc).")
     @click.option("--attach", multiple=True, help="File path to attach (repeat for multiple)")
+    @click.option("--no-signature", "no_signature", is_flag=True, default=False, help="Omit the Gmail send-as signature.")
     @account_option
     @compact_option
-    def draft_reply(message_id, body, body_file, to, cc, no_cc, attach, account, compact):
+    def draft_reply(message_id, body, body_file, to, cc, no_cc, attach, no_signature, account, compact):
         """Create a draft reply to a message. Auto-preserves original Cc. Does NOT send."""
         import gmail as gmail_lib
         with _handle_errors(compact):
@@ -193,6 +200,7 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
                 no_cc=no_cc,
                 account=account,
                 attachments=attachments,
+                no_signature=no_signature,
             )
             output_success(result, compact=compact)
 
@@ -204,9 +212,10 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @click.option("--cc", default=None, help="Override Cc list (default: original To + Cc minus self).")
     @click.option("--no-cc", "no_cc", is_flag=True, default=False, help="Force Cc empty (conflicts with --cc).")
     @click.option("--attach", multiple=True, help="File path to attach (repeat for multiple)")
+    @click.option("--no-signature", "no_signature", is_flag=True, default=False, help="Omit the Gmail send-as signature.")
     @account_option
     @compact_option
-    def draft_reply_all_cmd(message_id, body, body_file, to, cc, no_cc, attach, account, compact):
+    def draft_reply_all_cmd(message_id, body, body_file, to, cc, no_cc, attach, no_signature, account, compact):
         """Draft a reply-all. Same semantics as reply-all, but creates a draft."""
         import gmail as gmail_lib
         with _handle_errors(compact):
@@ -220,6 +229,7 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
                 no_cc=no_cc,
                 account=account,
                 attachments=attachments,
+                no_signature=no_signature,
             )
             output_success(result, compact=compact)
 
@@ -259,9 +269,10 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @gmail.command("attach-to-draft")
     @click.argument("draft_id")
     @click.option("--attach", multiple=True, required=True, help="File path to attach (repeat for multiple)")
+    @click.option("--no-signature", "no_signature", is_flag=True, default=False, help="Omit the Gmail send-as signature.")
     @account_option
     @compact_option
-    def attach_to_draft_cmd(draft_id, attach, account, compact):
+    def attach_to_draft_cmd(draft_id, attach, no_signature, account, compact):
         """Attach files to an existing draft. Preserves body, subject, recipients, and existing attachments."""
         import gmail as gmail_lib
         with _handle_errors(compact):
@@ -270,6 +281,7 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
                 attachments=list(attach),
                 append_attachments=True,
                 account=account,
+                no_signature=no_signature,
             )
             # Annotate with count for ergonomic output
             result["attached"] = len(attach)
@@ -284,9 +296,10 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @click.option("--cc", default=None, help="New CC recipient(s). Omit to keep existing.")
     @click.option("--attach", multiple=True, help="File path to attach (repeat for multiple). See --append-attachments.")
     @click.option("--append-attachments", "append_attachments", is_flag=True, default=False, help="Keep existing attachments and add new ones (default replaces).")
+    @click.option("--no-signature", "no_signature", is_flag=True, default=False, help="Omit the Gmail send-as signature.")
     @account_option
     @compact_option
-    def update_draft_cmd(draft_id, body, body_file, subject, to, cc, attach, append_attachments, account, compact):
+    def update_draft_cmd(draft_id, body, body_file, subject, to, cc, attach, append_attachments, no_signature, account, compact):
         """Update an existing draft. Any field omitted is preserved from the current draft."""
         import gmail as gmail_lib
         with _handle_errors(compact):
@@ -303,6 +316,7 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
                 attachments=attachments,
                 append_attachments=append_attachments,
                 account=account,
+                no_signature=no_signature,
             )
             output_success(result, compact=compact)
 
