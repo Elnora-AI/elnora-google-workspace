@@ -812,6 +812,123 @@ def test_plain_with_attachment_is_mixed_with_text_body(patch_build_service, tmp_
 
 
 # ---------------------------------------------------------------------------
+# html_body: caller-supplied HTML alternative, sent verbatim
+# ---------------------------------------------------------------------------
+
+# Markdown, a bare URL, entities, non-ASCII and trailing whitespace: all things
+# the default plain-to-HTML path would rewrite.
+_HTML = (
+    '<div style="font-family:Georgia,serif">\n'
+    "  <p>Hello &mdash; **not bold** https://example.com/a?b=1&amp;c=2</p>\n"
+    "  <p>Grüße ✓</p>  \n"
+    "</div>\n"
+)
+
+
+def _decoded_parts(msg_payload: dict) -> list[str]:
+    """Return every non-multipart MIME part, decoded."""
+    import base64 as _b64
+    from email import message_from_bytes
+
+    parsed = message_from_bytes(_b64.urlsafe_b64decode(msg_payload["raw"].encode()))
+    return [
+        part.get_payload(decode=True).decode("utf-8", errors="replace")
+        for part in parsed.walk()
+        if not part.is_multipart()
+    ]
+
+
+def _assert_html_alternative(plain_text: str, payload: dict) -> None:
+    """Text part is the body, HTML part is html_body byte-for-byte, no signature or wrapper anywhere."""
+    assert _content_types(payload) == ["multipart/alternative", "text/plain", "text/html"]
+    assert _html_part(payload) == _HTML
+    assert plain_text == _BODY
+    for part in _decoded_parts(payload):
+        assert "My Signature" not in part
+        assert "gmail_signature" not in part
+        assert "Arial" not in part
+
+
+@pytest.mark.parametrize("fn, api", [("send", "send"), ("draft", "drafts")])
+def test_send_and_draft_html_body_verbatim(patch_build_service, fn, api):
+    gmail_mod, mock_svc = patch_build_service
+    _mock_send_as(mock_svc, signature=_SIGNATURE)
+    mock_svc.users().messages().send().execute.return_value = {"id": "m", "threadId": "t"}
+    mock_svc.users().drafts().create().execute.return_value = {"id": "d", "message": {"id": "m"}}
+
+    getattr(gmail_mod, fn)(to="user@example.com", subject="Hi", body=_BODY, cc="c@example.com", html_body=_HTML)
+
+    headers, plain_text, payload = _decode_sent_message(mock_svc, api=api)
+    _assert_html_alternative(plain_text, payload)
+    assert headers["to"] == "user@example.com"
+    assert headers["cc"] == "c@example.com"
+    assert headers["from"] == "Me <me@example.com>"
+
+
+@pytest.mark.parametrize("fn, api", [
+    ("reply", "send"),
+    ("reply_all", "send"),
+    ("draft_reply", "drafts"),
+    ("draft_reply_all", "drafts"),
+])
+def test_reply_html_body_keeps_threading(patch_build_service, fn, api):
+    gmail_mod, mock_svc = patch_build_service
+    _mock_send_as(mock_svc, signature=_SIGNATURE)
+    mock_svc.users().messages().get().execute.return_value = _make_original_message()
+    mock_svc.users().messages().send().execute.return_value = {"id": "m", "threadId": "thread-orig"}
+    mock_svc.users().drafts().create().execute.return_value = {"id": "d", "message": {"id": "m"}}
+
+    getattr(gmail_mod, fn)(message_id="msg-orig", body=_BODY, html_body=_HTML)
+
+    headers, plain_text, payload = _decode_sent_message(mock_svc, api=api)
+    _assert_html_alternative(plain_text, payload)
+    assert headers["in-reply-to"] == "<msg-orig@mail>"
+    assert headers["references"] == "<msg-orig@mail>"
+    assert headers["subject"] == "Re: Original subject"
+    assert headers["to"] == "alice@x.com"
+    assert "dave@z.com" in headers["cc"]
+    assert headers["from"] == "Me <me@example.com>"
+    assert payload["threadId"] == "thread-orig"
+
+
+def test_html_body_with_attachment_is_mixed_around_alternative(patch_build_service, tmp_path):
+    gmail_mod, mock_svc = patch_build_service
+    _mock_send_as(mock_svc, signature=_SIGNATURE)
+    mock_svc.users().messages().send().execute.return_value = {"id": "m", "threadId": "t"}
+    report = tmp_path / "report.pdf"
+    report.write_bytes(b"%PDF-1.4")
+
+    gmail_mod.send(to="user@example.com", subject="Hi", body=_BODY, attachments=[str(report)], html_body=_HTML)
+
+    _, plain_text, payload = _decode_sent_message(mock_svc, api="send")
+    assert _content_types(payload) == [
+        "multipart/mixed", "multipart/alternative", "text/plain", "text/html", "application/pdf",
+    ]
+    assert _html_part(payload) == _HTML
+    assert plain_text == _BODY
+
+
+def test_html_body_with_plain_is_refused(patch_build_service):
+    gmail_mod, mock_svc = patch_build_service
+    _mock_send_as(mock_svc, signature=_SIGNATURE)
+
+    with pytest.raises(ValidationError, match="mutually exclusive"):
+        gmail_mod.send(to="user@example.com", subject="Hi", body=_BODY, html_body=_HTML, plain=True)
+    mock_svc.users().messages().send.assert_not_called()
+
+
+@pytest.mark.parametrize("html", ["", "  \n\t"])
+def test_empty_html_body_is_refused(patch_build_service, html):
+    """An empty HTML part renders as a blank email, so it never goes out."""
+    gmail_mod, mock_svc = patch_build_service
+    _mock_send_as(mock_svc, signature=_SIGNATURE)
+
+    with pytest.raises(ValidationError, match="empty"):
+        gmail_mod.send(to="user@example.com", subject="Hi", body=_BODY, html_body=html)
+    mock_svc.users().messages().send.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
 # Per-wrapper API endpoint tests (make sure each function hits the right endpoint)
 # ---------------------------------------------------------------------------
 
@@ -1452,6 +1569,79 @@ def test_cli_plain_flag_threads_through(args, lib_fn, flag):
 
     assert result.exit_code == 0, result.output
     assert called_with["plain"] is flag
+
+
+_SIX_VERBS = [
+    (["send", "--to", "a@example.com", "--subject", "s", "--body", "b"], "send"),
+    (["draft", "--to", "a@example.com", "--subject", "s", "--body", "b"], "draft"),
+    (["reply", "m-1", "--body", "b"], "reply"),
+    (["reply-all", "m-1", "--body", "b"], "reply_all"),
+    (["draft-reply", "m-1", "--body", "b"], "draft_reply"),
+    (["draft-reply-all", "m-1", "--body", "b"], "draft_reply_all"),
+]
+
+
+@pytest.mark.parametrize("html", [None, "<p>Hi &amp; <b>bye</b></p>\n"])
+@pytest.mark.parametrize("args, lib_fn", _SIX_VERBS)
+def test_cli_html_body_threads_through(args, lib_fn, html):
+    """--html-body reaches the library call unchanged; without it, html_body is None."""
+    from click.testing import CliRunner
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "cli"))
+    from gw import cli as gw_cli  # type: ignore
+    import output as output_mod
+
+    import gmail as gmail_mod
+    called_with: dict = {}
+
+    def fake(**kwargs):
+        called_with.update(kwargs)
+        return {"ok": True}
+
+    argv = ["gmail", *args, "--compact"] + (["--html-body", html] if html is not None else [])
+    with patch.object(gmail_mod, lib_fn, side_effect=fake), \
+         patch.object(output_mod, "_write_stdout"):
+        result = CliRunner().invoke(gw_cli, argv, catch_exceptions=False)
+
+    assert result.exit_code == 0, result.output
+    assert called_with["html_body"] == html
+    assert called_with["body"] == "b"
+
+
+@pytest.mark.parametrize("args, lib_fn", _SIX_VERBS)
+def test_cli_html_body_with_plain_is_usage_error(args, lib_fn):
+    """--html-body and --plain together are refused before the library is called."""
+    from click.testing import CliRunner
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "cli"))
+    from gw import cli as gw_cli  # type: ignore
+
+    import gmail as gmail_mod
+
+    argv = ["gmail", *args, "--compact", "--plain", "--html-body", "<p>Hi</p>"]
+    with patch.object(gmail_mod, lib_fn) as lib:
+        result = CliRunner().invoke(gw_cli, argv)
+
+    assert result.exit_code == 2, result.output
+    assert "mutually exclusive" in result.output
+    lib.assert_not_called()
+
+
+@pytest.mark.parametrize("html", ["", "   "])
+@pytest.mark.parametrize("args, lib_fn", _SIX_VERBS)
+def test_cli_empty_html_body_is_usage_error(args, lib_fn, html):
+    """`--html-body "$(cat wrong/path.html)"` expands to an empty string: refused, nothing sent."""
+    from click.testing import CliRunner
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "cli"))
+    from gw import cli as gw_cli  # type: ignore
+
+    import gmail as gmail_mod
+
+    argv = ["gmail", *args, "--compact", "--html-body", html]
+    with patch.object(gmail_mod, lib_fn) as lib:
+        result = CliRunner().invoke(gw_cli, argv)
+
+    assert result.exit_code == 2, result.output
+    assert "empty" in result.output
+    lib.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

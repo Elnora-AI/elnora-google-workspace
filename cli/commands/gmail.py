@@ -21,6 +21,15 @@ def _resolve_body(body: str | None, body_file: str | None) -> str:
     raise click.UsageError("Either --body or --body-file is required.")
 
 
+def _check_html_body(html_body: str | None, plain: bool) -> None:
+    """Refuse --html-body with --plain: one supplies an HTML part, the other sends none. Refuse an empty one too:
+    `--html-body "$(cat wrong/path.html)"` expands to "", and a blank HTML part is what the recipient sees."""
+    if html_body is not None and plain:
+        raise click.UsageError("--html-body and --plain are mutually exclusive: --plain sends no HTML part.")
+    if html_body is not None and not html_body.strip():
+        raise click.UsageError("--html-body is empty: the recipient would see a blank email.")
+
+
 def _merge_addresses(values: tuple[str, ...]) -> str | None:
     """Merge repeated --to/--cc flags into one comma-separated string.
 
@@ -52,15 +61,17 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @click.option("--attach", multiple=True, help="File path to attach (repeat for multiple)")
     @click.option("--no-signature", "no_signature", is_flag=True, default=False, help="Omit the Gmail send-as signature.")
     @click.option("--plain", is_flag=True, default=False, help="Send plain text only: no HTML part, so no signature or styling.")
+    @click.option("--html-body", "html_body", default=None, help="HTML part, sent verbatim as the alternative to --body. No signature. Conflicts with --plain.")
     @account_option
     @compact_option
-    def send(to, subject, body, body_file, cc, thread_id, attach, no_signature, plain, account, compact):
+    def send(to, subject, body, body_file, cc, thread_id, attach, no_signature, plain, html_body, account, compact):
         """Send an email. Use --thread-id to send as a reply in an existing thread."""
+        _check_html_body(html_body, plain)
         import gmail as gmail_lib
         with _handle_errors(compact):
             resolved_body = _resolve_body(body, body_file)
             attachments = list(attach) if attach else None
-            result = gmail_lib.send(to=_merge_addresses(to), subject=subject, body=resolved_body, cc=_merge_addresses(cc), thread_id=thread_id, account=account, attachments=attachments, no_signature=no_signature, plain=plain)
+            result = gmail_lib.send(to=_merge_addresses(to), subject=subject, body=resolved_body, cc=_merge_addresses(cc), thread_id=thread_id, account=account, attachments=attachments, no_signature=no_signature, plain=plain, html_body=html_body)
             output_success(result, compact=compact)
 
     @gmail.command()
@@ -73,15 +84,17 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @click.option("--attach", multiple=True, help="File path to attach (repeat for multiple)")
     @click.option("--no-signature", "no_signature", is_flag=True, default=False, help="Omit the Gmail send-as signature.")
     @click.option("--plain", is_flag=True, default=False, help="Send plain text only: no HTML part, so no signature or styling.")
+    @click.option("--html-body", "html_body", default=None, help="HTML part, sent verbatim as the alternative to --body. No signature. Conflicts with --plain.")
     @account_option
     @compact_option
-    def draft(to, subject, body, body_file, cc, thread_id, attach, no_signature, plain, account, compact):
+    def draft(to, subject, body, body_file, cc, thread_id, attach, no_signature, plain, html_body, account, compact):
         """Create an email draft. Use --thread-id to draft as a reply in an existing thread."""
+        _check_html_body(html_body, plain)
         import gmail as gmail_lib
         with _handle_errors(compact):
             resolved_body = _resolve_body(body, body_file)
             attachments = list(attach) if attach else None
-            result = gmail_lib.draft(to=_merge_addresses(to), subject=subject, body=resolved_body, cc=_merge_addresses(cc), thread_id=thread_id, account=account, attachments=attachments, no_signature=no_signature, plain=plain)
+            result = gmail_lib.draft(to=_merge_addresses(to), subject=subject, body=resolved_body, cc=_merge_addresses(cc), thread_id=thread_id, account=account, attachments=attachments, no_signature=no_signature, plain=plain, html_body=html_body)
             output_success(result, compact=compact)
 
     @gmail.command(name="list")
@@ -129,10 +142,12 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @click.option("--attach", multiple=True, help="File path to attach (repeat for multiple)")
     @click.option("--no-signature", "no_signature", is_flag=True, default=False, help="Omit the Gmail send-as signature.")
     @click.option("--plain", is_flag=True, default=False, help="Send plain text only: no HTML part, so no signature or styling.")
+    @click.option("--html-body", "html_body", default=None, help="HTML part, sent verbatim as the alternative to --body. No signature. Conflicts with --plain.")
     @account_option
     @compact_option
-    def reply(message_id, body, body_file, to, cc, no_cc, attach, no_signature, plain, account, compact):
+    def reply(message_id, body, body_file, to, cc, no_cc, attach, no_signature, plain, html_body, account, compact):
         """Reply to a message. Preserves the thread and auto-preserves original Cc recipients."""
+        _check_html_body(html_body, plain)
         import gmail as gmail_lib
         with _handle_errors(compact):
             resolved_body = _resolve_body(body, body_file)
@@ -147,6 +162,7 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
                 attachments=attachments,
                 no_signature=no_signature,
                 plain=plain,
+                html_body=html_body,
             )
             output_success(result, compact=compact)
 
@@ -160,10 +176,12 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @click.option("--attach", multiple=True, help="File path to attach (repeat for multiple)")
     @click.option("--no-signature", "no_signature", is_flag=True, default=False, help="Omit the Gmail send-as signature.")
     @click.option("--plain", is_flag=True, default=False, help="Send plain text only: no HTML part, so no signature or styling.")
+    @click.option("--html-body", "html_body", default=None, help="HTML part, sent verbatim as the alternative to --body. No signature. Conflicts with --plain.")
     @account_option
     @compact_option
-    def reply_all_cmd(message_id, body, body_file, to, cc, no_cc, attach, no_signature, plain, account, compact):
+    def reply_all_cmd(message_id, body, body_file, to, cc, no_cc, attach, no_signature, plain, html_body, account, compact):
         """Reply-all: send to the original sender with everyone else (original To + Cc, minus self) in Cc."""
+        _check_html_body(html_body, plain)
         import gmail as gmail_lib
         with _handle_errors(compact):
             resolved_body = _resolve_body(body, body_file)
@@ -178,6 +196,7 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
                 attachments=attachments,
                 no_signature=no_signature,
                 plain=plain,
+                html_body=html_body,
             )
             output_success(result, compact=compact)
 
@@ -191,10 +210,12 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @click.option("--attach", multiple=True, help="File path to attach (repeat for multiple)")
     @click.option("--no-signature", "no_signature", is_flag=True, default=False, help="Omit the Gmail send-as signature.")
     @click.option("--plain", is_flag=True, default=False, help="Send plain text only: no HTML part, so no signature or styling.")
+    @click.option("--html-body", "html_body", default=None, help="HTML part, sent verbatim as the alternative to --body. No signature. Conflicts with --plain.")
     @account_option
     @compact_option
-    def draft_reply(message_id, body, body_file, to, cc, no_cc, attach, no_signature, plain, account, compact):
+    def draft_reply(message_id, body, body_file, to, cc, no_cc, attach, no_signature, plain, html_body, account, compact):
         """Create a draft reply to a message. Auto-preserves original Cc. Does NOT send."""
+        _check_html_body(html_body, plain)
         import gmail as gmail_lib
         with _handle_errors(compact):
             resolved_body = _resolve_body(body, body_file)
@@ -209,6 +230,7 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
                 attachments=attachments,
                 no_signature=no_signature,
                 plain=plain,
+                html_body=html_body,
             )
             output_success(result, compact=compact)
 
@@ -222,10 +244,12 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @click.option("--attach", multiple=True, help="File path to attach (repeat for multiple)")
     @click.option("--no-signature", "no_signature", is_flag=True, default=False, help="Omit the Gmail send-as signature.")
     @click.option("--plain", is_flag=True, default=False, help="Send plain text only: no HTML part, so no signature or styling.")
+    @click.option("--html-body", "html_body", default=None, help="HTML part, sent verbatim as the alternative to --body. No signature. Conflicts with --plain.")
     @account_option
     @compact_option
-    def draft_reply_all_cmd(message_id, body, body_file, to, cc, no_cc, attach, no_signature, plain, account, compact):
+    def draft_reply_all_cmd(message_id, body, body_file, to, cc, no_cc, attach, no_signature, plain, html_body, account, compact):
         """Draft a reply-all. Same semantics as reply-all, but creates a draft."""
+        _check_html_body(html_body, plain)
         import gmail as gmail_lib
         with _handle_errors(compact):
             resolved_body = _resolve_body(body, body_file)
@@ -240,6 +264,7 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
                 attachments=attachments,
                 no_signature=no_signature,
                 plain=plain,
+                html_body=html_body,
             )
             output_success(result, compact=compact)
 
