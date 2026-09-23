@@ -50,6 +50,18 @@ All notable changes to this project are documented here. The format is based on
   unaffected. An empty (freshly-scaffolded) CRM now syncs as a clean no-op instead of
   reporting an error.
 
+## [1.4.0](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.3.2...v1.4.0) (2026-09-23)
+
+
+### Features
+
+* **gmail:** add --no-signature and --plain to control the signature and HTML part ([#52](https://github.com/Elnora-AI/elnora-google-workspace/issues/52)) ([7729702](https://github.com/Elnora-AI/elnora-google-workspace/commit/772970222a986f4ccc4789358a338c6b1382a6b5))
+
+
+### Bug Fixes
+
+* **crm:** make CRM CSV writes opt-in ([#50](https://github.com/Elnora-AI/elnora-google-workspace/issues/50)) ([304b2c8](https://github.com/Elnora-AI/elnora-google-workspace/commit/304b2c8cbc7fa8af2443be3b2e777f3702a55270))
+
 ## [1.3.2](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.3.1...v1.3.2) (2026-09-22)
 
 
