@@ -22,9 +22,12 @@ def _resolve_body(body: str | None, body_file: str | None) -> str:
 
 
 def _check_html_body(html_body: str | None, plain: bool) -> None:
-    """Refuse --html-body with --plain: one supplies an HTML part, the other sends none."""
+    """Refuse --html-body with --plain: one supplies an HTML part, the other sends none. Refuse an empty one too:
+    `--html-body "$(cat wrong/path.html)"` expands to "", and a blank HTML part is what the recipient sees."""
     if html_body is not None and plain:
         raise click.UsageError("--html-body and --plain are mutually exclusive: --plain sends no HTML part.")
+    if html_body is not None and not html_body.strip():
+        raise click.UsageError("--html-body is empty: the recipient would see a blank email.")
 
 
 def _merge_addresses(values: tuple[str, ...]) -> str | None:

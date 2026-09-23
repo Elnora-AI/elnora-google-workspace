@@ -821,7 +821,7 @@ _HTML = (
     '<div style="font-family:Georgia,serif">\n'
     "  <p>Hello &mdash; **not bold** https://example.com/a?b=1&amp;c=2</p>\n"
     "  <p>Grüße ✓</p>  \n"
-    "</div>"
+    "</div>\n"
 )
 
 
@@ -914,6 +914,17 @@ def test_html_body_with_plain_is_refused(patch_build_service):
 
     with pytest.raises(ValidationError, match="mutually exclusive"):
         gmail_mod.send(to="user@example.com", subject="Hi", body=_BODY, html_body=_HTML, plain=True)
+    mock_svc.users().messages().send.assert_not_called()
+
+
+@pytest.mark.parametrize("html", ["", "  \n\t"])
+def test_empty_html_body_is_refused(patch_build_service, html):
+    """An empty HTML part renders as a blank email, so it never goes out."""
+    gmail_mod, mock_svc = patch_build_service
+    _mock_send_as(mock_svc, signature=_SIGNATURE)
+
+    with pytest.raises(ValidationError, match="empty"):
+        gmail_mod.send(to="user@example.com", subject="Hi", body=_BODY, html_body=html)
     mock_svc.users().messages().send.assert_not_called()
 
 
@@ -1570,7 +1581,7 @@ _SIX_VERBS = [
 ]
 
 
-@pytest.mark.parametrize("html", [None, "<p>Hi &amp; <b>bye</b></p>"])
+@pytest.mark.parametrize("html", [None, "<p>Hi &amp; <b>bye</b></p>\n"])
 @pytest.mark.parametrize("args, lib_fn", _SIX_VERBS)
 def test_cli_html_body_threads_through(args, lib_fn, html):
     """--html-body reaches the library call unchanged; without it, html_body is None."""
@@ -1611,6 +1622,25 @@ def test_cli_html_body_with_plain_is_usage_error(args, lib_fn):
 
     assert result.exit_code == 2, result.output
     assert "mutually exclusive" in result.output
+    lib.assert_not_called()
+
+
+@pytest.mark.parametrize("html", ["", "   "])
+@pytest.mark.parametrize("args, lib_fn", _SIX_VERBS)
+def test_cli_empty_html_body_is_usage_error(args, lib_fn, html):
+    """`--html-body "$(cat wrong/path.html)"` expands to an empty string: refused, nothing sent."""
+    from click.testing import CliRunner
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "cli"))
+    from gw import cli as gw_cli  # type: ignore
+
+    import gmail as gmail_mod
+
+    argv = ["gmail", *args, "--compact", "--html-body", html]
+    with patch.object(gmail_mod, lib_fn) as lib:
+        result = CliRunner().invoke(gw_cli, argv)
+
+    assert result.exit_code == 2, result.output
+    assert "empty" in result.output
     lib.assert_not_called()
 
 

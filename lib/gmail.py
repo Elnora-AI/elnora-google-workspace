@@ -131,6 +131,11 @@ def _build_message(
             "html_body and plain are mutually exclusive: plain sends no HTML part.",
             suggestion="Pass one or the other.",
         )
+    if html_body is not None and not html_body.strip():
+        raise ValidationError(
+            "html_body is empty: the recipient would see a blank email.",
+            suggestion="Pass the HTML, or leave html_body out.",
+        )
 
     # Validate each recipient — both `to` and `cc` support comma-separated lists
     # (required for reply-all) and `Display Name <email>` form (required when
