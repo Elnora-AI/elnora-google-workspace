@@ -102,8 +102,9 @@ The `cold-outreach` agent was retired with the sender in 1.3.2. See
   `gw auth login --client-secret-file PATH`.
 - **Tokens** go to the OS keyring (with the optional `keyring` package) or a 0600
   JSON file under the config directory. Nothing is written into the repo.
-- **Opt-in scopes**: Analytics and Search Console are excluded from a default
-  login. Add them with `gw auth login --add-scopes analytics,searchconsole`,
+- **Opt-in scopes**: Analytics, Search Console and Gmail Postmaster Tools are
+  excluded from a default login. Add them with
+  `gw auth login --add-scopes analytics,searchconsole,postmaster`,
   which keeps the scopes an account already holds. A login replaces the token, so
   `--scopes` would drop everything it does not name.
 

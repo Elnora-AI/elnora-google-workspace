@@ -463,7 +463,7 @@ def register(cli_group: click.Group, account_option, compact_option) -> None:
     @auth.command()
     @account_option
     @click.option("--email", default=None, help="Login hint (pre-selects the Google account)")
-    @click.option("--scopes", default=None, help="Comma-separated services to authorize, REPLACING the token's current scopes (gmail,calendar,sheets,docs,tasks,forms,drive; opt-in: analytics,searchconsole). Default: all except the opt-in ones.")
+    @click.option("--scopes", default=None, help="Comma-separated services to authorize, REPLACING the token's current scopes (gmail,calendar,sheets,docs,tasks,forms,drive; opt-in: analytics,searchconsole,postmaster). Default: all except the opt-in ones.")
     @click.option("--add-scopes", "add_scopes", default=None, help="Services to ADD to the scopes this account already has. Use this to authorize one more API without losing the rest.")
     @click.option("--readonly", is_flag=True, help="Request read-only scope variants")
     @click.option("--client-secret-file", type=click.Path(exists=True, dir_okay=False), default=None, help="Path to a Google OAuth client_secret.json")

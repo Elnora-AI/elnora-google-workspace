@@ -195,6 +195,7 @@ class TestScopes:
         for scope in auth.scopes_for():
             assert "analytics" not in scope
             assert "webmasters" not in scope
+            assert "postmaster" not in scope
 
     def test_opt_in_services_reachable_by_name(self):
         assert auth.scopes_for(["analytics"]) == [
@@ -202,6 +203,9 @@ class TestScopes:
         ]
         assert auth.scopes_for(["searchconsole"]) == [
             "https://www.googleapis.com/auth/webmasters.readonly"
+        ]
+        assert auth.scopes_for(["postmaster"]) == [
+            "https://www.googleapis.com/auth/postmaster.traffic.readonly"
         ]
 
     def test_opt_in_services_are_read_only_in_both_tables(self):
