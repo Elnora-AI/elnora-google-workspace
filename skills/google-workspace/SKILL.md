@@ -48,6 +48,10 @@ $CLI auth login --add-scopes analytics,searchconsole
 Use `--add-scopes`, never `--scopes`: a login **replaces** the token, so `--scopes analytics`
 would drop Gmail, Calendar, Drive, Sheets, Docs, Tasks and Forms. Both scopes are read-only.
 
+`postmaster` (`postmaster.traffic.readonly`, read-only) reaches Gmail Postmaster Tools v2 through
+`gw-api`: `$CLI auth login --add-scopes postmaster`, then
+`$CLI api call gmailpostmastertools:v2 domains.getComplianceStatus --params '{"name":"domains/example.com/complianceStatus"}'`.
+
 ## UI Verification
 
 All write operations (calendar create/update, docs create/append/replace, forms create/add-items, sheets write/append, gmail draft) should be verified visually using Chrome DevTools MCP (`mcp__chrome-devtools__navigate_page` + `mcp__chrome-devtools__take_screenshot`). Each service skill has specific verification steps — follow them before reporting done.

@@ -30,10 +30,10 @@ the test suite.
 - Unverified Google Cloud apps cap requested scopes (~25) and require you to list your
   own account as a Test user — `/gw-setup` explains this and keeps the default set
   well under the cap.
-- **Opt-in scopes.** `analytics` (`analytics.readonly`) and `searchconsole`
-  (`webmasters.readonly`) are never included in a default login. They are granted only
+- **Opt-in scopes.** `analytics` (`analytics.readonly`), `searchconsole`
+  (`webmasters.readonly`) and `postmaster` (`postmaster.traffic.readonly`) are never included in a default login. They are granted only
   when named, so an existing consent screen does not widen and nobody is re-prompted for
-  APIs they do not use. Both are read-only in the full scope table as well as the
+  APIs they do not use. All are read-only in the full scope table as well as the
   `--readonly` one: `gw` reads these APIs and never writes to them. The Search Console
   write methods (`sites.add`, `sites.delete`, sitemap submit and delete) are not exposed
   at all, and a test asserts they stay unreachable.
