@@ -50,6 +50,13 @@ All notable changes to this project are documented here. The format is based on
   unaffected. An empty (freshly-scaffolded) CRM now syncs as a clean no-op instead of
   reporting an error.
 
+## [1.6.0](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.5.0...v1.6.0) (2026-09-24)
+
+
+### Features
+
+* **auth:** postmaster is an opt-in read-only scope for Gmail Postmaster Tools v2 ([#55](https://github.com/Elnora-AI/elnora-google-workspace/issues/55)) ([3d94189](https://github.com/Elnora-AI/elnora-google-workspace/commit/3d941893b0b614d3191f9c02629775589fa24331))
+
 ## [1.5.0](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.4.0...v1.5.0) (2026-09-23)
 
 
