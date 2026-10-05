@@ -6,7 +6,7 @@
 # storage works out of the box.
 google-api-python-client>=2.200.0
 google-auth>=2.58.0
-google-auth-oauthlib>=1.4.1
+google-auth-oauthlib>=1.5.0
 click>=8.5.0
 keyring>=24.0
 # Drives Chrome over the DevTools protocol for `gw calendar booking`; Google
