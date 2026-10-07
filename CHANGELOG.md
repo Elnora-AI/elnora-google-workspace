@@ -50,6 +50,14 @@ All notable changes to this project are documented here. The format is based on
   unaffected. An empty (freshly-scaffolded) CRM now syncs as a clean no-op instead of
   reporting an error.
 
+## [1.6.1](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.6.0...v1.6.1) (2026-10-07)
+
+
+### Bug Fixes
+
+* **gmail:** a single read Gmail throttles is retried instead of failing the command ([#65](https://github.com/Elnora-AI/elnora-google-workspace/issues/65)) ([2ff7fb2](https://github.com/Elnora-AI/elnora-google-workspace/commit/2ff7fb258a2a2e62cf5fb488cba02decac73472e))
+* **gmail:** list reads throttled messages again instead of dropping them ([#63](https://github.com/Elnora-AI/elnora-google-workspace/issues/63)) ([fe38a04](https://github.com/Elnora-AI/elnora-google-workspace/commit/fe38a04f3b8928ab7e2b2dea36d49a2d3618943f))
+
 ## [1.6.0](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.5.0...v1.6.0) (2026-09-24)
 
 
