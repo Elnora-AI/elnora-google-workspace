@@ -1799,3 +1799,73 @@ def test_crm_track_outbound_runs_when_opted_in(monkeypatch):
 
     bump.assert_called_once()
     assert result["updated"] == 1
+
+
+# ---------------------------------------------------------------------------
+# throttled batch reads
+# ---------------------------------------------------------------------------
+
+def _msg(mid):
+    return {"id": mid, "threadId": f"t-{mid}", "snippet": "", "payload": {"headers": [
+        {"name": "From", "value": "a@example.com"}, {"name": "Subject", "value": mid}]}}
+
+
+def _throttling_batch(responses, throttle_counts, sizes):
+    """Batches that answer 429 for an id the first throttle_counts[id] times it is read, then the canned response."""
+    from googleapiclient.errors import HttpError
+
+    def _factory(callback=None):
+        pending: list[str] = []
+        batch = MagicMock()
+        batch.add.side_effect = lambda request, request_id: pending.append(request_id)
+
+        def _execute():
+            sizes.append(len(pending))
+            for req_id in pending:
+                if throttle_counts.get(req_id, 0) > 0:
+                    throttle_counts[req_id] -= 1
+                    callback(req_id, None, HttpError(MagicMock(status=429), b"rateLimitExceeded"))
+                else:
+                    callback(req_id, responses[req_id], None)
+            pending.clear()
+
+        batch.execute.side_effect = _execute
+        return batch
+    return _factory
+
+
+def test_list_messages_reads_throttled_messages_again(patch_build_service):
+    gmail_mod, mock_svc = patch_build_service
+    ids = [f"m{i}" for i in range(60)]
+    mock_svc.users().messages().list().execute.return_value = {"messages": [{"id": i} for i in ids]}
+    sizes: list[int] = []
+    mock_svc.new_batch_http_request.side_effect = _throttling_batch(
+        {i: _msg(i) for i in ids}, {"m3": 1, "m40": 2}, sizes)
+    with patch.object(gmail_mod.time, "sleep") as slept:
+        result = gmail_mod.list_messages(query="in:inbox", limit=100)
+    assert result["count"] == 60
+    assert "warnings" not in result
+    assert max(sizes) <= gmail_mod.BATCH_SIZE
+    assert [c.args[0] for c in slept.call_args_list] == [2, 4]
+
+
+def test_list_messages_reports_a_read_still_throttled_after_every_round(patch_build_service):
+    gmail_mod, mock_svc = patch_build_service
+    mock_svc.users().messages().list().execute.return_value = {"messages": [{"id": "a"}, {"id": "b"}]}
+    mock_svc.new_batch_http_request.side_effect = _throttling_batch(
+        {"a": _msg("a"), "b": _msg("b")}, {"b": 99}, [])
+    with patch.object(gmail_mod.time, "sleep"):
+        result = gmail_mod.list_messages(query="in:inbox", limit=10)
+    assert result["count"] == 1
+    assert result["warnings"] == [f"b: still rate limited after {gmail_mod.THROTTLE_ROUNDS} tries"]
+
+
+def test_a_read_refused_for_good_is_not_retried(patch_build_service):
+    gmail_mod, mock_svc = patch_build_service
+    mock_svc.users().messages().list().execute.return_value = {"messages": [{"id": "gone"}, {"id": "ok"}]}
+    mock_svc.new_batch_http_request.side_effect = _make_batch_mock({"ok": _msg("ok")})
+    with patch.object(gmail_mod.time, "sleep") as slept:
+        result = gmail_mod.list_messages(query="in:inbox", limit=10)
+    assert result["count"] == 1
+    assert len(result["warnings"]) == 1 and result["warnings"][0].startswith("gone: ")
+    slept.assert_not_called()
