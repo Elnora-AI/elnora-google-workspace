@@ -10,6 +10,7 @@ import base64
 import mimetypes
 import os
 import re
+import time
 from datetime import datetime, timedelta, timezone
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
@@ -387,6 +388,63 @@ def draft(
 _DRAFT_QUERY_RE = re.compile(r"(?:^|\s)(?:in:drafts|is:draft)(?:\s|$)", re.IGNORECASE)
 
 
+
+# Gmail batch reads. A messages.get costs 5 quota units and Google advises Gmail batches of 50 or fewer: a batch of 100
+# asks for 500 units at once, Gmail answers the excess with 429 and those messages come back missing. So batches of 25,
+# and every read Gmail throttled is read again after a growing pause before it is reported as failed.
+BATCH_SIZE = 25
+THROTTLE_ROUNDS = 5          # the first try plus four more, after 2, 4, 8 and 16 s
+
+
+def _throttled(exception) -> bool:
+    """True when Gmail refused a read for rate, not for good (429, or 403 rateLimitExceeded / userRateLimitExceeded)."""
+    status = getattr(getattr(exception, "resp", None), "status", None)
+    if status == 429:
+        return True
+    return status == 403 and "ratelimitexceeded" in str(exception).lower().replace("_", "")
+
+
+def _batch_get_metadata(service, msg_ids: list[str], context: str) -> tuple[dict[str, dict], list[str]]:
+    """Fetch the metadata of every message in msg_ids with batched messages.get: ({id: message}, [errors])."""
+    fetched: dict[str, dict] = {}
+    fetch_errors: list[str] = []
+    pending = list(dict.fromkeys(msg_ids))
+    for attempt in range(THROTTLE_ROUNDS):
+        throttled: list[str] = []
+
+        def _callback(request_id, response, exception):
+            if exception is None:
+                fetched[request_id] = response
+            elif _throttled(exception):
+                throttled.append(request_id)
+            else:
+                fetch_errors.append(f"{request_id}: {exception}")
+
+        for i in range(0, len(pending), BATCH_SIZE):
+            batch = service.new_batch_http_request(callback=_callback)
+            for msg_id in pending[i : i + BATCH_SIZE]:
+                batch.add(
+                    service.users().messages().get(
+                        userId="me", id=msg_id, format="metadata",
+                        metadataHeaders=["From", "To", "Cc", "Subject", "Date"],
+                    ),
+                    request_id=msg_id,
+                )
+            try:
+                batch.execute()
+            except HttpError as e:
+                handle_http_error(e, context)
+                raise  # unreachable
+        if not throttled:
+            break
+        pending = throttled
+        if attempt < THROTTLE_ROUNDS - 1:
+            time.sleep(2 ** (attempt + 1))
+    else:
+        fetch_errors += [f"{msg_id}: still rate limited after {THROTTLE_ROUNDS} tries" for msg_id in throttled]
+    return fetched, fetch_errors
+
+
 def list_messages(
     query: str = "",
     limit: int = 20,
@@ -429,32 +487,7 @@ def list_messages(
     if not all_refs:
         return {"messages": [], "count": 0, "query": query}
 
-    # Use batch API to fetch messages (chunked to 100 per batch — Google API limit)
-    fetched: dict[str, dict] = {}
-    fetch_errors: list[str] = []
-
-    def _callback(request_id, response, exception):
-        if exception is None:
-            fetched[request_id] = response
-        else:
-            fetch_errors.append(f"{request_id}: {exception}")
-
-    for i in range(0, len(all_refs), 100):
-        chunk = all_refs[i : i + 100]
-        batch = service.new_batch_http_request(callback=_callback)
-        for msg_ref in chunk:
-            batch.add(
-                service.users().messages().get(
-                    userId="me", id=msg_ref["id"], format="metadata",
-                    metadataHeaders=["From", "To", "Cc", "Subject", "Date"],
-                ),
-                request_id=msg_ref["id"],
-            )
-        try:
-            batch.execute()
-        except HttpError as e:
-            handle_http_error(e, "gmail batch fetch")
-            raise  # unreachable
+    fetched, fetch_errors = _batch_get_metadata(service, [m["id"] for m in all_refs], "gmail batch fetch")
 
     if not fetched and all_refs:
         raise CliError(
@@ -514,32 +547,7 @@ def list_drafts(
         if msg_id:
             msg_ids.append(msg_id)
 
-    # Use batch API to fetch message metadata (chunked to 100 per batch)
-    fetched: dict[str, dict] = {}
-    fetch_errors: list[str] = []
-
-    def _callback(request_id, response, exception):
-        if exception is None:
-            fetched[request_id] = response
-        else:
-            fetch_errors.append(f"{request_id}: {exception}")
-
-    for i in range(0, len(msg_ids), 100):
-        chunk = msg_ids[i : i + 100]
-        batch = service.new_batch_http_request(callback=_callback)
-        for msg_id in chunk:
-            batch.add(
-                service.users().messages().get(
-                    userId="me", id=msg_id, format="metadata",
-                    metadataHeaders=["From", "To", "Cc", "Subject", "Date"],
-                ),
-                request_id=msg_id,
-            )
-        try:
-            batch.execute()
-        except HttpError as e:
-            handle_http_error(e, "gmail list_drafts batch fetch")
-            raise  # unreachable
+    fetched, fetch_errors = _batch_get_metadata(service, msg_ids, "gmail list_drafts batch fetch")
 
     if not fetched and msg_ids:
         raise CliError(
