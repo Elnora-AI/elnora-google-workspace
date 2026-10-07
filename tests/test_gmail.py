@@ -1869,3 +1869,23 @@ def test_a_read_refused_for_good_is_not_retried(patch_build_service):
     assert result["count"] == 1
     assert len(result["warnings"]) == 1 and result["warnings"][0].startswith("gone: ")
     slept.assert_not_called()
+
+
+def test_a_single_read_asks_the_client_to_retry_a_throttled_request(patch_build_service):
+    gmail_mod, mock_svc = patch_build_service
+    mock_svc.users().threads().get().execute.return_value = {"messages": [_msg("t1")]}
+    mock_svc.users().messages().get().execute.return_value = _msg("m1")
+    mock_svc.users().messages().list().execute.return_value = {"messages": []}
+    gmail_mod.get_thread("t")
+    gmail_mod.get("m1")
+    gmail_mod.list_messages(query="in:inbox", limit=10)
+    for read in (mock_svc.users().threads().get().execute, mock_svc.users().messages().get().execute,
+                 mock_svc.users().messages().list().execute):
+        read.assert_called_with(num_retries=gmail_mod.READ_RETRIES)
+
+
+def test_a_send_is_never_retried(patch_build_service):
+    gmail_mod, mock_svc = patch_build_service
+    mock_svc.users().messages().send().execute.return_value = {"id": "m", "threadId": "t"}
+    gmail_mod.send(to="user@example.com", subject="Hi", body="Hello")
+    mock_svc.users().messages().send().execute.assert_called_once_with()

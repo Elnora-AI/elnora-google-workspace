@@ -394,6 +394,10 @@ _DRAFT_QUERY_RE = re.compile(r"(?:^|\s)(?:in:drafts|is:draft)(?:\s|$)", re.IGNOR
 # and every read Gmail throttled is read again after a growing pause before it is reported as failed.
 BATCH_SIZE = 25
 THROTTLE_ROUNDS = 5          # the first try plus four more, after 2, 4, 8 and 16 s
+# A single read (a search page, a message, a thread) that Gmail answers with 429 or a 5xx, or whose connection drops, is
+# sent again by the Google client after a random pause that doubles each time (about two minutes at most in all): one
+# throttled read would otherwise fail the whole command. Reads only: a send is never repeated.
+READ_RETRIES = 6
 
 
 def _throttled(exception) -> bool:
@@ -475,7 +479,7 @@ def list_messages(
         if page_token:
             kwargs["pageToken"] = page_token
         try:
-            result = service.users().messages().list(**kwargs).execute()
+            result = service.users().messages().list(**kwargs).execute(num_retries=READ_RETRIES)
         except HttpError as e:
             handle_http_error(e, "gmail list")
             raise  # unreachable
@@ -576,7 +580,7 @@ def get(message_id: str, account: str | None = None) -> dict:
     try:
         msg = service.users().messages().get(
             userId="me", id=message_id, format="full"
-        ).execute()
+        ).execute(num_retries=READ_RETRIES)
     except HttpError as e:
         resp = getattr(e, "resp", None)
         if resp is not None and resp.status == 404:
@@ -597,7 +601,7 @@ def get_thread(thread_id: str, account: str | None = None) -> list[dict]:
     try:
         thread = service.users().threads().get(
             userId="me", id=thread_id, format="full"
-        ).execute()
+        ).execute(num_retries=READ_RETRIES)
     except HttpError as e:
         resp = getattr(e, "resp", None)
         if resp is not None and resp.status == 404:
