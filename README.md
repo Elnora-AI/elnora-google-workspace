@@ -85,7 +85,7 @@ before the subcommand: `gw --output csv analytics report ...`.
 
 `gw-setup` for onboarding, a `google-workspace` router, one skill per service
 (`gw-gmail`, `gw-calendar`, `gw-drive`, `gw-docs`, `gw-sheets`, `gw-forms`,
-`gw-tasks`, `gw-inbox`, `gw-analytics`, `gw-searchconsole`) and `gw-api` for the
+`gw-tasks`, `gw-inbox`, `gw-analytics`, `gw-searchconsole`, `gw-postmaster`) and `gw-api` for the
 generic invoker.
 
 The `cold-outreach` agent was retired with the sender in 1.3.2. See
