@@ -205,8 +205,14 @@ class TestScopes:
             "https://www.googleapis.com/auth/webmasters.readonly"
         ]
         assert auth.scopes_for(["postmaster"]) == [
-            "https://www.googleapis.com/auth/postmaster.traffic.readonly"
+            "https://www.googleapis.com/auth/postmaster.traffic.readonly",
+            "https://www.googleapis.com/auth/postmaster.readonly",
         ]
+
+    def test_postmaster_never_asks_for_a_scope_that_manages_domains(self):
+        """postmaster and postmaster.domain can create, verify and delete domains."""
+        for scope in auth.scopes_for(["postmaster"]):
+            assert scope.endswith("readonly")
 
     def test_opt_in_services_are_read_only_in_both_tables(self):
         """gw reads these APIs and never writes to them."""

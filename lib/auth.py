@@ -107,9 +107,15 @@ READONLY_SERVICE_SCOPES: dict[str, list[str]] = {
 OPT_IN_SERVICE_SCOPES: dict[str, list[str]] = {
     "analytics": ["https://www.googleapis.com/auth/analytics.readonly"],
     "searchconsole": ["https://www.googleapis.com/auth/webmasters.readonly"],
-    # Gmail Postmaster Tools v2 (gmailpostmastertools:v2): domain stats and compliance
-    # status, read-only. v1's postmaster.readonly does not reach v2.
-    "postmaster": ["https://www.googleapis.com/auth/postmaster.traffic.readonly"],
+    # Gmail Postmaster Tools, read-only, both halves. v2's postmaster.traffic.readonly
+    # reads domain stats and compliance status; v1's postmaster.readonly lists the
+    # registered domains and reads the domain reputation, which v2 does not carry.
+    # Neither reaches the other version. v2's own domain list needs postmaster.domain,
+    # which can also create and delete domains, so it is not asked for.
+    "postmaster": [
+        "https://www.googleapis.com/auth/postmaster.traffic.readonly",
+        "https://www.googleapis.com/auth/postmaster.readonly",
+    ],
 }
 
 OPT_IN_READONLY_SERVICE_SCOPES: dict[str, list[str]] = dict(OPT_IN_SERVICE_SCOPES)

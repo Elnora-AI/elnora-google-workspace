@@ -7,6 +7,14 @@ All notable changes to this project are documented here. The format is based on
 ## Unreleased
 
 ### Added
+- **`gw postmaster`** — read Gmail Postmaster Tools: `domains`, and `stats --domain`, one row
+  per reported day with the spam rate, DKIM / SPF / DMARC pass rates, delivery errors and
+  Google's domain reputation. Every answer says how many days came back, because Google
+  reports a day only above a Gmail volume threshold and a missing day is not a clean one.
+- The `postmaster` opt-in now also grants `postmaster.readonly` (v1), which lists the
+  registered domains and reads the domain reputation. v2's own domain list needs
+  `postmaster.domain`, which can create and delete domains, so it is not asked for.
+- Skill `gw-postmaster`, routed from `google-workspace`.
 - **`gw analytics`** — read Google Analytics 4: `properties`, `report`, `realtime`,
   `metadata`, `check`. Responses are flattened out of the GA4 wire format into plain
   records, and metric values are converted to numbers using the type the API declares,
