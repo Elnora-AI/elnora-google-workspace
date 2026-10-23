@@ -58,6 +58,13 @@ All notable changes to this project are documented here. The format is based on
   unaffected. An empty (freshly-scaffolded) CRM now syncs as a clean no-op instead of
   reporting an error.
 
+## [1.7.0](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.6.1...v1.7.0) (2026-10-23)
+
+
+### Features
+
+* **postmaster:** gw postmaster lists your domains and reads their daily spam rate, authentication and reputation ([#67](https://github.com/Elnora-AI/elnora-google-workspace/issues/67)) ([4dfacfd](https://github.com/Elnora-AI/elnora-google-workspace/commit/4dfacfd36f8e3a02a8b12043ca5902b81ca98c14))
+
 ## [1.6.1](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.6.0...v1.6.1) (2026-10-07)
 
 
