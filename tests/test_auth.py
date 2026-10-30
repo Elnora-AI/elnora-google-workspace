@@ -196,6 +196,8 @@ class TestScopes:
             assert "analytics" not in scope
             assert "webmasters" not in scope
             assert "postmaster" not in scope
+            assert "youtube" not in scope
+            assert "yt-analytics" not in scope
 
     def test_opt_in_services_reachable_by_name(self):
         assert auth.scopes_for(["analytics"]) == [
@@ -208,6 +210,15 @@ class TestScopes:
             "https://www.googleapis.com/auth/postmaster.traffic.readonly",
             "https://www.googleapis.com/auth/postmaster.readonly",
         ]
+        assert auth.scopes_for(["youtube"]) == [
+            "https://www.googleapis.com/auth/youtube.readonly",
+            "https://www.googleapis.com/auth/yt-analytics.readonly",
+        ]
+
+    def test_youtube_never_asks_for_a_scope_that_can_upload_or_edit(self):
+        """youtube and youtube.force-ssl can upload, edit and delete videos and comments."""
+        for scope in auth.scopes_for(["youtube"]):
+            assert scope.endswith("readonly")
 
     def test_postmaster_never_asks_for_a_scope_that_manages_domains(self):
         """postmaster and postmaster.domain can create, verify and delete domains."""

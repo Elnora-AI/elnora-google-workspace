@@ -85,7 +85,7 @@ before the subcommand: `gw --output csv analytics report ...`.
 
 `gw-setup` for onboarding, a `google-workspace` router, one skill per service
 (`gw-gmail`, `gw-calendar`, `gw-drive`, `gw-docs`, `gw-sheets`, `gw-forms`,
-`gw-tasks`, `gw-inbox`, `gw-analytics`, `gw-searchconsole`, `gw-postmaster`) and `gw-api` for the
+`gw-tasks`, `gw-inbox`, `gw-analytics`, `gw-searchconsole`, `gw-postmaster`, `gw-youtube`) and `gw-api` for the
 generic invoker.
 
 The `cold-outreach` agent was retired with the sender in 1.3.2. See
@@ -107,6 +107,9 @@ The `cold-outreach` agent was retired with the sender in 1.3.2. See
   `gw auth login --add-scopes analytics,searchconsole,postmaster`,
   which keeps the scopes an account already holds. A login replaces the token, so
   `--scopes` would drop everything it does not name.
+- **YouTube** (`youtube`, read-only) is also opt-in but gets an account of its own:
+  `gw auth login --account youtube --scopes youtube`, then pick the channel on the
+  consent screen.
 
 Full option list: [`settings.example.md`](settings.example.md).
 

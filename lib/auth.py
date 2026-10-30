@@ -116,6 +116,14 @@ OPT_IN_SERVICE_SCOPES: dict[str, list[str]] = {
         "https://www.googleapis.com/auth/postmaster.traffic.readonly",
         "https://www.googleapis.com/auth/postmaster.readonly",
     ],
+    # YouTube, read-only. youtube.readonly reads the channel's videos and their live
+    # public counts (Data API v3); yt-analytics.readonly reads the Studio metrics
+    # (Analytics API v2). A channel on a Brand Account is picked on the consent screen
+    # and the token then belongs to that channel, so it gets an account of its own.
+    "youtube": [
+        "https://www.googleapis.com/auth/youtube.readonly",
+        "https://www.googleapis.com/auth/yt-analytics.readonly",
+    ],
 }
 
 OPT_IN_READONLY_SERVICE_SCOPES: dict[str, list[str]] = dict(OPT_IN_SERVICE_SCOPES)
