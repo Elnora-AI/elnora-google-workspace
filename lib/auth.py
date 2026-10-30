@@ -99,11 +99,11 @@ READONLY_SERVICE_SCOPES: dict[str, list[str]] = {
 # login, so an existing token's consent screen does not widen and no re-consent
 # is forced on anyone who does not want these APIs.
 #
-# Both entries are read-only in the full table as well as the readonly one. gw
-# reads Analytics and Search Console; it does not write to them, and asking for
+# Every entry but youtube-upload is read-only in the full table as well as the
+# readonly one. gw reads these APIs; it does not write to them, and asking for
 # a write scope we never exercise would be exactly the scope-widening the
 # SAFETY guidance warns against. Add a write scope here when a command needs it,
-# not before.
+# not before: youtube-upload came with `gw youtube upload`.
 OPT_IN_SERVICE_SCOPES: dict[str, list[str]] = {
     "analytics": ["https://www.googleapis.com/auth/analytics.readonly"],
     "searchconsole": ["https://www.googleapis.com/auth/webmasters.readonly"],
@@ -124,9 +124,16 @@ OPT_IN_SERVICE_SCOPES: dict[str, list[str]] = {
         "https://www.googleapis.com/auth/youtube.readonly",
         "https://www.googleapis.com/auth/yt-analytics.readonly",
     ],
+    # The one write opt-in. youtube.upload inserts videos and nothing else: it cannot
+    # edit, delete or change the privacy of any video, the uploaded one included.
+    # Add it to the `youtube` account, which already belongs to the channel.
+    "youtube-upload": ["https://www.googleapis.com/auth/youtube.upload"],
 }
 
-OPT_IN_READONLY_SERVICE_SCOPES: dict[str, list[str]] = dict(OPT_IN_SERVICE_SCOPES)
+# --readonly asks for no write scope, so the write-only opt-in has no entry here.
+OPT_IN_READONLY_SERVICE_SCOPES: dict[str, list[str]] = {
+    name: scopes for name, scopes in OPT_IN_SERVICE_SCOPES.items() if name != "youtube-upload"
+}
 
 # Every service name --scopes accepts, default and opt-in together.
 ALL_SERVICE_NAMES = list(SERVICE_SCOPES) + list(OPT_IN_SERVICE_SCOPES)
@@ -143,6 +150,11 @@ def scopes_for(services: list[str] | None = None, *, readonly: bool = False) -> 
     table = {**default, **opt_in}
     names = list(default) if not services else services
     unknown = [n for n in names if n not in table]
+    write_only = [n for n in unknown if n in OPT_IN_SERVICE_SCOPES]
+    if write_only:
+        raise ValueError(
+            f"{', '.join(write_only)} has no read-only variant. Drop --readonly to ask for it."
+        )
     if unknown:
         raise ValueError(
             f"Unknown service(s): {', '.join(unknown)}. "
