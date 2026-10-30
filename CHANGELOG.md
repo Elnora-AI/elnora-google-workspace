@@ -58,6 +58,13 @@ All notable changes to this project are documented here. The format is based on
   unaffected. An empty (freshly-scaffolded) CRM now syncs as a clean no-op instead of
   reporting an error.
 
+## [1.9.0](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.8.0...v1.9.0) (2026-10-30)
+
+
+### Features
+
+* **youtube:** gw youtube upload, under an upload-only youtube-upload opt-in scope ([#73](https://github.com/Elnora-AI/elnora-google-workspace/issues/73)) ([575d478](https://github.com/Elnora-AI/elnora-google-workspace/commit/575d4788fea8eb69e349b2c9da33b3c6ed81fdf6))
+
 ## [1.8.0](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.7.0...v1.8.0) (2026-10-30)
 
 
