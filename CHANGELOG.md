@@ -58,6 +58,13 @@ All notable changes to this project are documented here. The format is based on
   unaffected. An empty (freshly-scaffolded) CRM now syncs as a clean no-op instead of
   reporting an error.
 
+## [1.8.0](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.7.0...v1.8.0) (2026-10-30)
+
+
+### Features
+
+* **youtube:** a read-only youtube opt-in scope and a gw-youtube skill for channel and Shorts analytics ([#71](https://github.com/Elnora-AI/elnora-google-workspace/issues/71)) ([451e990](https://github.com/Elnora-AI/elnora-google-workspace/commit/451e99020356e65a12af39cebbcb383c21bb0417))
+
 ## [1.7.0](https://github.com/Elnora-AI/elnora-google-workspace/compare/v1.6.1...v1.7.0) (2026-10-23)
 
 
