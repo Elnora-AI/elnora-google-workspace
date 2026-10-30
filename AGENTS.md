@@ -39,6 +39,9 @@ steps — use those.
   Add one with `gw auth login --add-scopes analytics,searchconsole,postmaster` — **never** `--scopes`, which
   replaces the token and drops everything it does not name. `gw auth status` lists what
   the account currently holds.
+- **YouTube is the exception:** log it in as its own account,
+  `gw auth login --account youtube --scopes youtube`, and pick the channel on the consent
+  screen. A Brand Account channel's token belongs to the channel, not the Gmail.
 
 ## Safety rules (must follow)
 

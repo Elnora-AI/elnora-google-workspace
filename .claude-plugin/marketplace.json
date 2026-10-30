@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "google-workspace",
-      "description": "Gmail, Calendar, Drive, Docs, Sheets, Forms, Tasks, Analytics (GA4), Search Console and Gmail Postmaster Tools for Claude Code — config-driven CLIs, skills, and a `gw api`/`gw schema` escape hatch to any Google API. Multi-account OAuth, keyring-backed tokens.",
+      "description": "Gmail, Calendar, Drive, Docs, Sheets, Forms, Tasks, Analytics (GA4), Search Console, Gmail Postmaster Tools and YouTube for Claude Code — config-driven CLIs, skills, and a `gw api`/`gw schema` escape hatch to any Google API. Multi-account OAuth, keyring-backed tokens.",
       "source": "./",
       "version": "1.7.0",
       "category": "productivity",
