@@ -109,7 +109,8 @@ The `cold-outreach` agent was retired with the sender in 1.3.2. See
   `--scopes` would drop everything it does not name.
 - **YouTube** (`youtube`, read-only) is also opt-in but gets an account of its own:
   `gw auth login --account youtube --scopes youtube`, then pick the channel on the
-  consent screen.
+  consent screen. `gw youtube upload` also needs `youtube-upload` (`youtube.upload`, the
+  one write opt-in): `gw auth login --account youtube --add-scopes youtube-upload`.
 
 Full option list: [`settings.example.md`](settings.example.md).
 

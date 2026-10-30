@@ -41,7 +41,8 @@ steps — use those.
   the account currently holds.
 - **YouTube is the exception:** log it in as its own account,
   `gw auth login --account youtube --scopes youtube`, and pick the channel on the consent
-  screen. A Brand Account channel's token belongs to the channel, not the Gmail.
+  screen. A Brand Account channel's token belongs to the channel, not the Gmail. Uploads
+  add the write opt-in to that account: `gw auth login --account youtube --add-scopes youtube-upload`.
 
 ## Safety rules (must follow)
 

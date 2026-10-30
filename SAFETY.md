@@ -37,6 +37,10 @@ the test suite.
   `--readonly` one: `gw` reads these APIs and never writes to them. The Search Console
   write methods (`sites.add`, `sites.delete`, sitemap submit and delete) are not exposed
   at all, and a test asserts they stay unreachable.
+- **`youtube-upload` is the one write opt-in.** It grants `youtube.upload` only, which
+  inserts videos and cannot edit, delete or change the privacy of any video. `--readonly`
+  refuses it. `gw youtube upload` has no default privacy: `--privacy`, the title, the
+  description and the made-for-kids declaration are all required.
 - **A login replaces the token.** `--scopes` therefore drops every scope it does not
   name, and warns (`SCOPES_NARROWED`) listing what it would lose. Use `--add-scopes` to
   authorize one more API while keeping the rest. `--add-scopes` refuses when there is no

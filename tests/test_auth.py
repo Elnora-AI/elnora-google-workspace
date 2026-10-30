@@ -226,9 +226,18 @@ class TestScopes:
             assert scope.endswith("readonly")
 
     def test_opt_in_services_are_read_only_in_both_tables(self):
-        """gw reads these APIs and never writes to them."""
+        """gw reads these APIs and never writes to them; youtube-upload is the one write opt-in."""
         for name in auth.OPT_IN_SERVICE_SCOPES:
-            assert auth.scopes_for([name]) == auth.scopes_for([name], readonly=True)
+            if name != "youtube-upload":
+                assert auth.scopes_for([name]) == auth.scopes_for([name], readonly=True)
+
+    def test_youtube_upload_asks_for_the_upload_only_scope(self):
+        """youtube and youtube.force-ssl could also edit and delete every video on the channel."""
+        assert auth.scopes_for(["youtube-upload"]) == ["https://www.googleapis.com/auth/youtube.upload"]
+
+    def test_youtube_upload_has_no_read_only_variant(self):
+        with pytest.raises(ValueError, match="no read-only variant"):
+            auth.scopes_for(["youtube-upload"], readonly=True)
 
     def test_opt_in_mixes_with_default_services(self):
         scopes = auth.scopes_for(["gmail", "analytics"], readonly=True)

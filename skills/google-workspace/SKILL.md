@@ -27,7 +27,7 @@ Routes to service-specific skills. Use the right skill for your task:
 | Read GA4 traffic, acquisition, pages, conversions, realtime | **gw-analytics** |
 | Read Search Console queries, pages, CTR, position, indexing, sitemaps | **gw-searchconsole** |
 | Read Gmail Postmaster spam rate, DKIM/SPF/DMARC, delivery errors, domain reputation | **gw-postmaster** |
-| Read YouTube video and Shorts stats: live counts, Studio analytics, retention, traffic sources | **gw-youtube** |
+| Read YouTube video and Shorts stats: live counts, Studio analytics, retention, traffic sources; upload a video | **gw-youtube** |
 | Call ANY Google API method (Discovery), inspect schemas | **gw-api** |
 
 **Attachments are supported** on every sending verb: `send`, `draft`, `draft-reply`, `draft-reply-all`, `reply`, `reply-all`, `update-draft`, and `attach-to-draft`. Use `--attach /path/to/file` and repeat for multiple files. See **gw-gmail** skill for examples.
@@ -57,7 +57,8 @@ would drop Gmail, Calendar, Drive, Sheets, Docs, Tasks and Forms. Both scopes ar
 `youtube` (`youtube.readonly` and `yt-analytics.readonly`, both read-only) is what
 **gw-youtube** needs, and it is the one opt-in that gets an account of its own:
 `$CLI auth login --account youtube --scopes youtube`, then pick the channel on the consent
-screen.
+screen. Uploading also needs `youtube-upload` (`youtube.upload`, the one write opt-in) on the
+same account: `$CLI auth login --account youtube --add-scopes youtube-upload`.
 
 ## UI Verification
 
