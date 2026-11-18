@@ -4,10 +4,10 @@
 # keyring is optional at runtime (the CLI falls back to 0600 token files when it
 # is absent or has no usable backend) but is included so encrypted credential
 # storage works out of the box.
-google-api-python-client>=2.201.0
-google-auth>=2.62.1
+google-api-python-client>=2.202.0
+google-auth>=2.62.2
 google-auth-oauthlib>=1.5.0
-click>=8.5.0
+click>=8.5.1
 keyring>=24.0
 # Drives Chrome over the DevTools protocol for `gw calendar booking`; Google
 # exposes no API for appointment schedules.
